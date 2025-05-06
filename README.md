@@ -4,6 +4,8 @@
 
 [![](assets/go-tree.png)](https://bitspark.dev/go-tree)
 
+**Website**: [bitspark.dev/go-tree](https://bitspark.dev/go-tree)
+
 ## Features
 
 - Parse Go packages from directories
@@ -73,6 +75,10 @@ gotree -src ./path/to/package -out output.go -include-tests -preserve-formatting
 - `-preserve-formatting`: Preserve original formatting style
 - `-skip-comments`: Skip comments during parsing
 - `-package`: Custom package name for output
+
+## Documentation
+
+For more examples and usage instructions, see the [documentation](https://bitspark.dev/go-llm).
 
 ## License
 
