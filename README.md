@@ -11,6 +11,7 @@
 - Parse Go packages from directories
 - Extract package metadata (functions, types, constants, variables)
 - Format Go packages into a single source file
+- Generate JSON representation for use with static site generators
 - Configurable parsing and formatting options
 
 ## Installation
@@ -65,20 +66,39 @@ gotree -src ./path/to/package
 
 # Parse and save to file with options
 gotree -src ./path/to/package -out output.go -include-tests -preserve-formatting
+
+# Generate JSON documentation
+gotree -src ./path/to/package -json -docs-dir ./docs/json
+
+# Process multiple packages in batch mode
+gotree -batch "/path/to/pkg1,/path/to/pkg2" -json -docs-dir ./docs/json
 ```
 
 ### CLI Options
 
 - `-src`: Source directory containing Go package (default: current directory)
 - `-out`: Output file (default: stdout)
+- `-json`: Output as JSON instead of formatted Go code
+- `-docs-dir`: Output directory for documentation JSON files
+- `-batch`: Comma-separated list of directories to process in batch mode
 - `-include-tests`: Include test files in parsing
 - `-preserve-formatting`: Preserve original formatting style
 - `-skip-comments`: Skip comments during parsing
 - `-package`: Custom package name for output
 
-## Documentation
+## Documentation Generation
 
-For more examples and usage instructions, see the [documentation](https://bitspark.dev/go-llm).
+This repository includes scripts to help with documentation generation:
+
+```bash
+# Using the provided script (Unix/Linux/macOS with Bash)
+./scripts/generate.sh -src ./path/to/package -docs-dir ./docs/json
+
+# Windows users can either use WSL, Git Bash, or call gotree directly
+gotree -src ./path/to/package -json -docs-dir ./docs/json
+```
+
+The generated JSON contains structured documentation of your Go packages and can be used with, e.g., a static site generator.
 
 ## License
 
