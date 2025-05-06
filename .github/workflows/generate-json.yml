@@ -26,7 +26,7 @@ jobs:
       - name: Generate package documentation JSON
         run: |
           chmod +x ./scripts/generate.sh
-          ./scripts/generate.sh -src . -docs-dir ./docs/json
+          ./scripts/generate.sh -src ./tree -out-dir ./docs/json
       
       - name: Upload documentation JSON artifacts
         uses: actions/upload-artifact@v4

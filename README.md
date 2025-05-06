@@ -65,21 +65,21 @@ func main() {
 gotree -src ./path/to/package
 
 # Parse and save to file with options
-gotree -src ./path/to/package -out output.go -include-tests -preserve-formatting
+gotree -src ./path/to/package -out-file output.go -include-tests -preserve-formatting
 
 # Generate JSON documentation
-gotree -src ./path/to/package -json -docs-dir ./docs/json
+gotree -src ./path/to/package -json -out-dir ./docs/json
 
 # Process multiple packages in batch mode
-gotree -batch "/path/to/pkg1,/path/to/pkg2" -json -docs-dir ./docs/json
+gotree -batch "/path/to/pkg1,/path/to/pkg2" -json -out-dir ./docs/json
 ```
 
 ### CLI Options
 
 - `-src`: Source directory containing Go package (default: current directory)
-- `-out`: Output file (default: stdout)
+- `-out-file`: Output file for a single result (default: stdout)
+- `-out-dir`: Output directory where files are created with auto-generated names
 - `-json`: Output as JSON instead of formatted Go code
-- `-docs-dir`: Output directory for documentation JSON files
 - `-batch`: Comma-separated list of directories to process in batch mode
 - `-include-tests`: Include test files in parsing
 - `-preserve-formatting`: Preserve original formatting style
@@ -92,10 +92,10 @@ This repository includes scripts to help with documentation generation:
 
 ```bash
 # Using the provided script (Unix/Linux/macOS with Bash)
-./scripts/generate.sh -src ./path/to/package -docs-dir ./docs/json
+./scripts/generate.sh -src ./path/to/package -out-dir ./docs/json
 
 # Windows users can either use WSL, Git Bash, or call gotree directly
-gotree -src ./path/to/package -json -docs-dir ./docs/json
+gotree -src ./path/to/package -json -out-dir ./docs/json
 ```
 
 The generated JSON contains structured documentation of your Go packages and can be used with, e.g., a static site generator.

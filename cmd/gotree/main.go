@@ -16,16 +16,31 @@ func main() {
 	// Define command-line flags
 	srcDir := flag.String("src", ".", "Source directory containing Go package")
 	batchDirs := flag.String("batch", "", "Comma-separated list of directories to process in batch mode")
-	outFile := flag.String("out", "", "Output file (defaults to stdout)")
+	outFile := flag.String("out-file", "", "Output file (defaults to stdout)")
+	outDir := flag.String("out-dir", "", "Output directory where files will be created automatically")
 	outputJSON := flag.Bool("json", false, "Output as JSON instead of formatted Go code")
-	docsDir := flag.String("docs-dir", "", "Output directory for documentation JSON files")
 	includeTests := flag.Bool("include-tests", false, "Include test files in parsing")
 	preserveFormatting := flag.Bool("preserve-formatting", true, "Preserve original formatting style")
 	skipComments := flag.Bool("skip-comments", false, "Skip comments during parsing")
 	customPkg := flag.String("package", "", "Custom package name for output (defaults to original)")
 
+	// Legacy support (deprecated, will be removed in future)
+	legacyOut := flag.String("out", "", "Deprecated: Use --out-file instead")
+	legacyDocsDir := flag.String("docs-dir", "", "Deprecated: Use --out-dir instead")
+
 	// Parse flags
 	flag.Parse()
+
+	// Handle legacy flags
+	if *legacyOut != "" && *outFile == "" {
+		fmt.Fprintf(os.Stderr, "Warning: --out is deprecated, use --out-file instead\n")
+		*outFile = *legacyOut
+	}
+
+	if *legacyDocsDir != "" && *outDir == "" {
+		fmt.Fprintf(os.Stderr, "Warning: --docs-dir is deprecated, use --out-dir instead\n")
+		*outDir = *legacyDocsDir
+	}
 
 	// Build options
 	opts := tree.DefaultOptions()
@@ -54,31 +69,52 @@ func main() {
 				continue // Skip this package but continue with others
 			}
 
-			// Only JSON output makes sense in batch mode
-			jsonData, err := json.MarshalIndent(pkg.Model, "", "  ")
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error generating JSON for %s: %v\n", dir, err)
-				continue
+			var output string
+			var outputPath string
+
+			// Process according to format selection
+			if *outputJSON {
+				// Generate JSON output
+				jsonData, err := json.MarshalIndent(pkg.Model, "", "  ")
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error generating JSON for %s: %v\n", dir, err)
+					continue
+				}
+				output = string(jsonData)
+			} else {
+				// Format as Go code
+				formattedCode, err := pkg.FormatWithOptions(opts)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error formatting package for %s: %v\n", dir, err)
+					continue
+				}
+				output = formattedCode
 			}
 
-			if *docsDir != "" {
-				// Create docs directory if it doesn't exist
-				if err := os.MkdirAll(*docsDir, 0755); err != nil {
-					fmt.Fprintf(os.Stderr, "Error creating docs directory %s: %v\n", *docsDir, err)
+			if *outDir != "" {
+				// Create output directory if it doesn't exist
+				if err := os.MkdirAll(*outDir, 0755); err != nil {
+					fmt.Fprintf(os.Stderr, "Error creating output directory %s: %v\n", *outDir, err)
 					continue
 				}
 
-				// Use package name as filename
-				outPath := filepath.Join(*docsDir, pkg.Name()+".json")
-				if err := os.WriteFile(outPath, jsonData, 0644); err != nil {
-					fmt.Fprintf(os.Stderr, "Error writing JSON for %s to %s: %v\n", dir, outPath, err)
+				// Use package name as filename with appropriate extension
+				ext := ".go"
+				if *outputJSON {
+					ext = ".json"
+				}
+				outputPath = filepath.Join(*outDir, pkg.Name()+ext)
+
+				// Write to file
+				if err := os.WriteFile(outputPath, []byte(output), 0644); err != nil {
+					fmt.Fprintf(os.Stderr, "Error writing to %s: %v\n", outputPath, err)
 					continue
 				}
-				fmt.Fprintf(os.Stderr, "Successfully wrote package JSON for %s to %s\n", dir, outPath)
+				fmt.Fprintf(os.Stderr, "Successfully wrote package to %s\n", outputPath)
 			} else {
-				// Without a docs directory, print to stdout with separator
+				// Without an output directory, print to stdout with separator
 				fmt.Printf("--- Package: %s ---\n", pkg.Name())
-				fmt.Println(string(jsonData))
+				fmt.Println(output)
 				fmt.Println()
 			}
 		}
@@ -93,7 +129,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Handle different output modes
+	var output string
+
+	// Handle different output formats
 	if *outputJSON {
 		// Generate JSON output
 		jsonData, err := json.MarshalIndent(pkg.Model, "", "  ")
@@ -101,66 +139,54 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error generating JSON: %v\n", err)
 			os.Exit(1)
 		}
-
-		if *docsDir != "" {
-			// Create docs directory if it doesn't exist
-			if err := os.MkdirAll(*docsDir, 0755); err != nil {
-				fmt.Fprintf(os.Stderr, "Error creating docs directory %s: %v\n", *docsDir, err)
-				os.Exit(1)
-			}
-
-			// Write to file in docs directory
-			outPath := filepath.Join(*docsDir, pkg.Name()+".json")
-			if err := os.WriteFile(outPath, jsonData, 0644); err != nil {
-				fmt.Fprintf(os.Stderr, "Error writing JSON to %s: %v\n", outPath, err)
-				os.Exit(1)
-			}
-			fmt.Fprintf(os.Stderr, "Successfully wrote package JSON to %s\n", outPath)
-		} else if *outFile != "" {
-			// Create output directory if it doesn't exist
-			outDir := filepath.Dir(*outFile)
-			if err := os.MkdirAll(outDir, 0755); err != nil {
-				fmt.Fprintf(os.Stderr, "Error creating directory %s: %v\n", outDir, err)
-				os.Exit(1)
-			}
-
-			// Write to specified output file
-			if err := os.WriteFile(*outFile, jsonData, 0644); err != nil {
-				fmt.Fprintf(os.Stderr, "Error writing JSON to %s: %v\n", *outFile, err)
-				os.Exit(1)
-			}
-			fmt.Fprintf(os.Stderr, "Successfully wrote package JSON to %s\n", *outFile)
-		} else {
-			// Write to stdout
-			fmt.Println(string(jsonData))
-		}
+		output = string(jsonData)
 	} else {
-		// Format the package as Go code (original behavior)
-		output, err := pkg.FormatWithOptions(opts)
+		// Format the package as Go code
+		formattedCode, err := pkg.FormatWithOptions(opts)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error formatting package: %v\n", err)
 			os.Exit(1)
 		}
+		output = formattedCode
+	}
 
-		// Write output
-		if *outFile == "" {
-			// Write to stdout
-			fmt.Print(output)
-		} else {
-			// Create output directory if it doesn't exist
-			outDir := filepath.Dir(*outFile)
-			if err := os.MkdirAll(outDir, 0755); err != nil {
-				fmt.Fprintf(os.Stderr, "Error creating directory %s: %v\n", outDir, err)
-				os.Exit(1)
-			}
-
-			// Write to file
-			if err := os.WriteFile(*outFile, []byte(output), 0644); err != nil {
-				fmt.Fprintf(os.Stderr, "Error writing to %s: %v\n", *outFile, err)
-				os.Exit(1)
-			}
-
-			fmt.Fprintf(os.Stderr, "Successfully wrote package to %s\n", *outFile)
+	// Determine where to write the output
+	if *outFile != "" {
+		// Create output directory if it doesn't exist
+		outDir := filepath.Dir(*outFile)
+		if err := os.MkdirAll(outDir, 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating directory %s: %v\n", outDir, err)
+			os.Exit(1)
 		}
+
+		// Write to specified output file
+		if err := os.WriteFile(*outFile, []byte(output), 0644); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing to %s: %v\n", *outFile, err)
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stderr, "Successfully wrote output to %s\n", *outFile)
+	} else if *outDir != "" {
+		// Create output directory if it doesn't exist
+		if err := os.MkdirAll(*outDir, 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating directory %s: %v\n", *outDir, err)
+			os.Exit(1)
+		}
+
+		// Use package name as filename with appropriate extension
+		ext := ".go"
+		if *outputJSON {
+			ext = ".json"
+		}
+		outputPath := filepath.Join(*outDir, pkg.Name()+ext)
+
+		// Write to file in output directory
+		if err := os.WriteFile(outputPath, []byte(output), 0644); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing to %s: %v\n", outputPath, err)
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stderr, "Successfully wrote output to %s\n", outputPath)
+	} else {
+		// Write to stdout
+		fmt.Print(output)
 	}
 }

@@ -11,7 +11,7 @@ fi
 
 # Default values
 SRC_DIR="."
-DOCS_DIR="./docs/json"
+OUT_DIR="./docs/json"
 
 # Determine package name in a cross-platform way
 if [[ -f "$SRC_DIR/go.mod" ]]; then
@@ -35,8 +35,15 @@ while [[ $# -gt 0 ]]; do
             shift
             shift
             ;;
+        -out-dir|--out-dir)
+            OUT_DIR="$2"
+            shift
+            shift
+            ;;
+        # Legacy support
         -docs-dir|--docs-dir)
-            DOCS_DIR="$2"
+            echo "Warning: --docs-dir is deprecated, use --out-dir instead"
+            OUT_DIR="$2"
             shift
             shift
             ;;
@@ -54,13 +61,13 @@ done
 
 echo "Generating documentation for $PACKAGE_NAME from $SRC_DIR..."
 
-# Create docs directory if it doesn't exist
-mkdir -p "$DOCS_DIR"
+# Create output directory if it doesn't exist
+mkdir -p "$OUT_DIR"
 
 # Generate the documentation JSON
-gotree -src "$SRC_DIR" -json -docs-dir "$DOCS_DIR"
+gotree -src "$SRC_DIR" -json -out-dir "$OUT_DIR"
 
-echo "Documentation generated at $DOCS_DIR/${PACKAGE_NAME}.json"
+echo "Documentation generated at $OUT_DIR/${PACKAGE_NAME}.json"
 
 # Simple completion message
 echo "Done! JSON documentation has been generated successfully." 
