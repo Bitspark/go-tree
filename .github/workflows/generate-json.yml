@@ -17,8 +17,11 @@ jobs:
         with:
           go-version: '1.21'
       
-      - name: Install go-tree
-        run: go install bitspark.dev/go-tree/cmd/gotree@latest
+      - name: Build local version of go-tree
+        run: |
+          go build -o gotree ./cmd/gotree
+          chmod +x ./gotree
+          sudo mv ./gotree /usr/local/bin/
       
       - name: Generate package documentation JSON
         run: |
