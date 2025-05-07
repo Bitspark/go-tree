@@ -1,15 +1,9 @@
 [![CI](https://github.com/Bitspark/go-tree/actions/workflows/main-pipeline.yml/badge.svg)](https://github.com/Bitspark/go-tree/actions/workflows/main-pipeline.yml)
-&nbsp;
 [![codecov](https://codecov.io/gh/Bitspark/go-tree/branch/main/graph/badge.svg?token=CRRt8eRJBz)](https://app.codecov.io/gh/Bitspark/go-tree/tree/main)
-&nbsp;
 [![Go Report Card](https://goreportcard.com/badge/github.com/Bitspark/go-tree)](https://goreportcard.com/report/github.com/Bitspark/go-tree)
-&nbsp;
 ![Go Version](https://img.shields.io/github/go-mod/go-version/Bitspark/go-tree)
-&nbsp;
 [![Go Reference](https://pkg.go.dev/badge/github.com/Bitspark/go-tree.svg)](https://pkg.go.dev/bitspark.dev/go-tree)
-&nbsp;
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/Bitspark/go-tree)
-&nbsp;
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # [![](assets/go-tree@h80px.png)](https://bitspark.dev/go-tree) Go-Tree

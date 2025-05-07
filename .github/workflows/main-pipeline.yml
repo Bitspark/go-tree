@@ -78,10 +78,25 @@ jobs:
           for dir in */; do
             # Get the platform name from directory
             platform=$(basename "$dir")
-            # Find and compress the binary file
+            # Find the binary file
             find "$dir" -type f | while read binary; do
-              # Create the tar.gz in the release-assets directory
+              # Create both tar.gz and zip files
               tar -czvf "../release-assets/${platform}.tar.gz" "$binary"
+              
+              # Create a temporary directory for the zip file with a clean structure
+              tmp_dir=$(mktemp -d)
+              
+              # Get just the binary name without the path
+              binary_name=$(basename "$binary")
+              
+              # Copy the binary to the temp dir
+              cp "$binary" "$tmp_dir/$binary_name"
+              
+              # Create zip file (especially useful for Windows)
+              (cd "$tmp_dir" && zip -9 "../../release-assets/${platform}.zip" "$binary_name")
+              
+              # Clean up temp directory
+              rm -rf "$tmp_dir"
             done
           done
           
@@ -92,7 +107,9 @@ jobs:
       - name: Upload release assets
         uses: softprops/action-gh-release@v1
         with:
-          files: release-assets/*.tar.gz
+          files: |
+            release-assets/*.tar.gz
+            release-assets/*.zip
           
   deploy-docs:
     name: Deploy Documentation
