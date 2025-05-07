@@ -1,0 +1,105 @@
+name: Main Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  release:
+    types: [created]
+
+jobs:
+  run-shared-checks:
+    uses: ./.github/workflows/shared-go-checks.yml
+    with:
+      go-version: '1.21'
+      run-race-detector: true
+      run-coverage: true
+      upload-coverage: true
+      full-security-scan: true
+      fail-on-coverage-decrease: true
+    secrets:
+      codecov-token: ${{ secrets.CODECOV_TOKEN }}
+  
+  cross-build:
+    name: Cross-Platform Build
+    runs-on: ubuntu-latest
+    needs: [run-shared-checks]
+    
+    strategy:
+      matrix:
+        goos: [linux, windows, darwin]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+          cache: true
+      
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p bin
+          # Build just the CLI tool (single package)
+          go build -v -o bin/app-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} ./cmd/gotree
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: bin/app-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }}
+          
+  release:
+    name: Create Release
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    needs: cross-build
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Create release assets
+        run: |
+          cd artifacts
+          # Handle both regular files and .exe files from Windows builds
+          find . -type f -not -path "*/\.*" | xargs -I {} tar -czvf {}.tar.gz {}
+      
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/*.tar.gz
+          
+  deploy-docs:
+    name: Deploy Documentation
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs: [run-shared-checks]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+          cache: true
+      
+      - name: Generate docs
+        run: |
+          go install golang.org/x/tools/cmd/godoc@latest
+          # Add your documentation generation steps here
+      
+      # Here you would add steps to deploy the documentation
+      # to GitHub Pages or your preferred hosting service 

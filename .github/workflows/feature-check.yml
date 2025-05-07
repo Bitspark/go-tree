@@ -1,0 +1,19 @@
+name: Feature Branch Check
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - dev
+
+jobs:
+  run-shared-checks:
+    uses: ./.github/workflows/shared-go-checks.yml
+    with:
+      go-version: '1.21'
+      run-race-detector: false
+      run-coverage: false
+      upload-coverage: false
+      full-security-scan: false
+    secrets:
+      codecov-token: ${{ secrets.CODECOV_TOKEN }}
