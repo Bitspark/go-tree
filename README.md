@@ -8,17 +8,16 @@
 
 # [![](assets/go-tree@h80px.png)](https://bitspark.dev/go-tree) Go-Tree
 
-> Library and command-line tool for parsing and formatting Go packages.
+> Library and command-line tool for analyzing and modifying Go code.
 
 ### **Documentation**: [bitspark.dev/go-tree](https://bitspark.dev/go-tree)
 
 ## Features
 
-- Parse Go packages from directories
-- Extract package metadata (functions, types, constants, variables)
-- Format Go packages into a single source file
-- Generate JSON representation for use with static site generators
-- Configurable parsing and formatting options
+- Parse and format Go from source files
+- Extract structured package data (functions, types, constants, variables)
+- Generate JSON representations fully capturing the codebase
+- Configurable and available as CLI and Go library
 
 ## Installation
 
@@ -79,18 +78,6 @@ gotree -src ./path/to/package -json -out-dir ./docs/json
 # Process multiple packages in batch mode
 gotree -batch "/path/to/pkg1,/path/to/pkg2" -json -out-dir ./docs/json
 ```
-
-### CLI Options
-
-- `-src`: Source directory containing Go package (default: current directory)
-- `-out-file`: Output file for a single result (default: stdout)
-- `-out-dir`: Output directory where files are created with auto-generated names
-- `-json`: Output as JSON instead of formatted Go code
-- `-batch`: Comma-separated list of directories to process in batch mode
-- `-include-tests`: Include test files in parsing
-- `-preserve-formatting`: Preserve original formatting style
-- `-skip-comments`: Skip comments during parsing
-- `-package`: Custom package name for output
 
 ## License
 

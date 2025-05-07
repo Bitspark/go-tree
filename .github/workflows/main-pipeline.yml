@@ -65,6 +65,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Install required utilities
+        run: sudo apt-get update && sudo apt-get install -y zip
+      
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -72,7 +75,10 @@ jobs:
       
       - name: Create release assets
         run: |
+          # Create directory for release assets with absolute path
           mkdir -p release-assets
+          RELEASE_DIR=$(pwd)/release-assets
+          
           cd artifacts
           # Process each downloaded artifact directory
           for dir in */; do
@@ -80,20 +86,20 @@ jobs:
             platform=$(basename "$dir")
             # Find the binary file
             find "$dir" -type f | while read binary; do
-              # Create both tar.gz and zip files
-              tar -czvf "../release-assets/${platform}.tar.gz" "$binary"
-              
-              # Create a temporary directory for the zip file with a clean structure
-              tmp_dir=$(mktemp -d)
+              # Create tar.gz file
+              tar -czvf "$RELEASE_DIR/${platform}.tar.gz" "$binary"
               
               # Get just the binary name without the path
               binary_name=$(basename "$binary")
               
-              # Copy the binary to the temp dir
+              # Create a temporary directory
+              tmp_dir=$(mktemp -d)
+              
+              # Copy binary to temp dir
               cp "$binary" "$tmp_dir/$binary_name"
               
-              # Create zip file (especially useful for Windows)
-              (cd "$tmp_dir" && zip -9 "../../release-assets/${platform}.zip" "$binary_name")
+              # Create zip file using absolute paths
+              (cd "$tmp_dir" && zip -j "$RELEASE_DIR/${platform}.zip" "$binary_name")
               
               # Clean up temp directory
               rm -rf "$tmp_dir"
@@ -102,7 +108,7 @@ jobs:
           
           # Debug: List contents of release-assets to verify
           echo "Release assets created:"
-          ls -la ../release-assets
+          ls -la "$RELEASE_DIR"
       
       - name: Upload release assets
         uses: softprops/action-gh-release@v1
