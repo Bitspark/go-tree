@@ -71,7 +71,7 @@ func main() {
 
 	// Write result to file
 	outFile := "formatted.go"
-	if err := os.WriteFile(outFile, []byte(formatted), 0644); err != nil {
+	if err := os.WriteFile(outFile, []byte(formatted), 0600); err != nil {
 		fmt.Printf("Error writing to %s: %v\n", outFile, err)
 		os.Exit(1)
 	}
