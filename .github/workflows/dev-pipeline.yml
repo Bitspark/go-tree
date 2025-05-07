@@ -11,7 +11,8 @@ jobs:
       go-version: '1.21'
       run-race-detector: true
       run-coverage: true
+      upload-coverage: true
       full-security-scan: false
       fail-on-coverage-decrease: false
     secrets:
-      codecov-token: ${{ secrets.CODECOV_TOKEN }} 
+      codecov-token: ${{ secrets.CODECOV_TOKEN }}
