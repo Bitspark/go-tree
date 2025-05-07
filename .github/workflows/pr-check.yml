@@ -1,0 +1,49 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  quick-check:
+    name: Quick Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+          cache: true
+      
+      - name: Verify dependencies
+        run: go mod verify
+        
+      - name: Fast tests
+        run: go test -short -v ./...
+      
+      - name: Code format check
+        run: |
+          go install golang.org/x/tools/cmd/goimports@latest
+          goimports -l . | tee goimports.out
+          if [ -s goimports.out ]; then
+            echo "Code format issues found"
+            exit 1
+          fi
+      
+      - name: Basic lint
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          staticcheck ./...
+          
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v3 
