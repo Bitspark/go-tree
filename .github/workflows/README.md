@@ -38,8 +38,12 @@ Triggered on pushes to the `main` branch and on release creation.
 ## Setup Requirements
 
 - GitHub repository with appropriate branch protection rules
-- CodeCov account for test coverage monitoring (optional)
 - Go modules for dependency management
+- CodeCov integration:
+  1. Sign up at [codecov.io](https://codecov.io/)
+  2. Connect your GitHub repository
+  3. Get your CodeCov token
+  4. Add the token as a GitHub secret named `CODECOV_TOKEN`
 
 ## Customizing
 
