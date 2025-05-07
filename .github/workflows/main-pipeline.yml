@@ -49,7 +49,7 @@ jobs:
           go build -v -o bin/app-${{ matrix.goos }}-${{ matrix.goarch }} ./...
       
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: app-${{ matrix.goos }}-${{ matrix.goarch }}
           path: bin/app-${{ matrix.goos }}-${{ matrix.goarch }}
