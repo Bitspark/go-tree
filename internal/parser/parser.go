@@ -24,6 +24,7 @@ type fileSet struct {
 
 // ParsePackage parses a Go package from the specified directory and returns a model.GoPackage
 func ParsePackage(dir string) (*model.GoPackage, error) {
+	// Get absolute path of the directory for security checks
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get absolute path for directory: %w", err)
@@ -69,7 +70,8 @@ func ParsePackage(dir string) (*model.GoPackage, error) {
 			return nil, fmt.Errorf("file %s is outside package directory", filename)
 		}
 
-		data, err := os.ReadFile(filename)
+		// Use the validated absolute path for reading the file
+		data, err := os.ReadFile(absFilename) // #nosec G304 - Path is validated above to prevent traversal
 		if err != nil {
 			return nil, fmt.Errorf("failed to read %s: %w", filename, err)
 		}

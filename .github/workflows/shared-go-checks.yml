@@ -1,0 +1,147 @@
+name: Shared Go Checks
+
+on:
+  workflow_call:
+    inputs:
+      go-version:
+        required: false
+        type: string
+        default: '1.21'
+      run-race-detector:
+        required: false
+        type: boolean
+        default: false
+      run-coverage:
+        required: false
+        type: boolean
+        default: false
+      full-security-scan:
+        required: false
+        type: boolean
+        default: false
+      fail-on-coverage-decrease:
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      codecov-token:
+        required: false
+
+jobs:
+  tests:
+    name: Go Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ inputs.go-version }}
+          cache: true
+      
+      - name: Verify dependencies
+        run: go mod verify
+      
+      - name: Install dependencies
+        run: go mod download
+      
+      - name: Run standard tests
+        if: inputs.run-race-detector == false
+        run: go test -v ./...
+      
+      - name: Run tests with race detection
+        if: inputs.run-race-detector == true
+        run: go test -v -race ./...
+      
+      - name: Generate coverage report
+        if: inputs.run-coverage == true
+        run: go test -coverprofile=coverage.out -covermode=atomic ./...
+      
+      - name: Upload coverage to Codecov
+        if: inputs.run-coverage == true && secrets.codecov-token != ''
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.codecov-token }}
+          file: ./coverage.out
+          fail_ci_if_error: ${{ inputs.fail-on-coverage-decrease }}
+  
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ inputs.go-version }}
+          cache: true
+      
+      - name: Basic format check
+        run: |
+          go install golang.org/x/tools/cmd/goimports@latest
+          goimports -l . | tee goimports.out
+          if [ -s goimports.out ]; then
+            echo "Code format issues found"
+            exit 1
+          fi
+      
+      - name: Install golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          args: --timeout=5m
+          
+  security:
+    name: Security Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ inputs.go-version }}
+          cache: true
+      
+      - name: Run gosec
+        uses: securego/gosec@master
+        with:
+          args: ./...
+          
+      - name: Run govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+      
+      - name: Run trivy for filesystem scanning
+        if: inputs.full-security-scan == true
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+  
+  build:
+    name: Build Check
+    runs-on: ubuntu-latest
+    needs: [tests, lint, security]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ inputs.go-version }}
+          cache: true
+      
+      - name: Build
+        run: go build -v ./... 
