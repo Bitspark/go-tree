@@ -1,10 +1,19 @@
-# Go-Tree
-
 > Library and command-line tool for parsing and formatting Go packages.
 
 [![](assets/go-tree.png)](https://bitspark.dev/go-tree)
 
-**Website**: [bitspark.dev/go-tree](https://bitspark.dev/go-tree)
+# Go-Tree
+
+[![codecov](https://codecov.io/gh/Bitspark/go-tree/branch/main/graph/badge.svg?token=CRRt8eRJBz)](https://codecov.io/gh/Bitspark/go-tree)
+[![CI](https://github.com/Bitspark/go-tree/actions/workflows/main-pipeline.yml/badge.svg)](https://github.com/Bitspark/go-tree/actions/workflows/main-pipeline.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Bitspark/go-tree)](https://goreportcard.com/report/github.com/Bitspark/go-tree)
+[![Go Reference](https://pkg.go.dev/badge/github.com/Bitspark/go-tree.svg)](https://pkg.go.dev/github.com/Bitspark/go-tree)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![Go Version](https://img.shields.io/github/go-mod/go-version/Bitspark/go-tree)
+
+[//]: # (![GitHub release &#40;latest by date&#41;]&#40;https://img.shields.io/github/v/release/Bitspark/go-tree&#41;)
+
+### **Documentation**: [bitspark.dev/go-tree](https://bitspark.dev/go-tree)
 
 ## Features
 
@@ -85,20 +94,6 @@ gotree -batch "/path/to/pkg1,/path/to/pkg2" -json -out-dir ./docs/json
 - `-preserve-formatting`: Preserve original formatting style
 - `-skip-comments`: Skip comments during parsing
 - `-package`: Custom package name for output
-
-## Documentation Generation
-
-This repository includes scripts to help with documentation generation:
-
-```bash
-# Using the provided script (Unix/Linux/macOS with Bash)
-./scripts/generate.sh -src ./path/to/package -out-dir ./docs/json
-
-# Windows users can either use WSL, Git Bash, or call gotree directly
-gotree -src ./path/to/package -json -out-dir ./docs/json
-```
-
-The generated JSON contains structured documentation of your Go packages and can be used with, e.g., a static site generator.
 
 ## License
 
