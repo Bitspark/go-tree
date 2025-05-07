@@ -6,6 +6,10 @@ on:
   release:
     types: [created]
 
+# Add permissions section to allow release management
+permissions:
+  contents: write
+
 jobs:
   run-shared-checks:
     uses: ./.github/workflows/shared-go-checks.yml
@@ -116,7 +120,9 @@ jobs:
           files: |
             release-assets/*.tar.gz
             release-assets/*.zip
-          
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
   deploy-docs:
     name: Deploy Documentation
     runs-on: ubuntu-latest
