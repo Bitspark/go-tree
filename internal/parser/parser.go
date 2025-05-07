@@ -16,6 +16,11 @@ import (
 	"bitspark.dev/go-tree/internal/model"
 )
 
+// fileSet represents a set of parsed Go files
+type fileSet struct {
+	Files map[string]*ast.File
+}
+
 // ParsePackage parses a Go package from the specified directory and returns a model.GoPackage
 func ParsePackage(dir string) (*model.GoPackage, error) {
 	fset := token.NewFileSet()
@@ -32,10 +37,10 @@ func ParsePackage(dir string) (*model.GoPackage, error) {
 	}
 
 	// Assume a single package (use the first one in map)
-	var astPkg *ast.Package
+	var files *fileSet
 	var pkgName string
 	for name, pkg := range pkgs {
-		astPkg = pkg
+		files = &fileSet{Files: pkg.Files}
 		pkgName = name
 		break
 	}
@@ -46,7 +51,7 @@ func ParsePackage(dir string) (*model.GoPackage, error) {
 
 	// Read all files' contents for extracting original source snippets
 	fileContents := make(map[string][]byte)
-	for filename := range astPkg.Files {
+	for filename := range files.Files {
 		data, err := os.ReadFile(filename)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read %s: %w", filename, err)
@@ -55,28 +60,28 @@ func ParsePackage(dir string) (*model.GoPackage, error) {
 	}
 
 	// Process imports
-	if err := parseImports(pkg, astPkg, fset, fileContents); err != nil {
+	if err := parseImports(pkg, files, fset, fileContents); err != nil {
 		return nil, err
 	}
 
 	// Process declarations
-	if err := parseDeclarations(pkg, astPkg, fset, fileContents); err != nil {
+	if err := parseDeclarations(pkg, files, fset, fileContents); err != nil {
 		return nil, err
 	}
 
 	// Extract package-level comments
-	extractPackageDocs(pkg, astPkg, fset, fileContents)
+	extractPackageDocs(pkg, files, fset, fileContents)
 
 	return pkg, nil
 }
 
 // parseImports extracts all imports from the package
-func parseImports(pkg *model.GoPackage, astPkg *ast.Package, fset *token.FileSet, fileContents map[string][]byte) error {
+func parseImports(pkg *model.GoPackage, files *fileSet, fset *token.FileSet, fileContents map[string][]byte) error {
 	// Prepare to collect imports (unique by path) with insertion order
 	importMap := make(map[string]model.GoImport)
 	var importOrder []string
 
-	for _, file := range astPkg.Files {
+	for _, file := range files.Files {
 		for _, importSpec := range file.Imports {
 			pathLit := importSpec.Path.Value // e.g. "\"fmt\""
 			path, err := strconv.Unquote(pathLit)
@@ -117,7 +122,7 @@ func parseImports(pkg *model.GoPackage, astPkg *ast.Package, fset *token.FileSet
 }
 
 // parseDeclarations extracts all top-level declarations from the package
-func parseDeclarations(pkg *model.GoPackage, astPkg *ast.Package, fset *token.FileSet, fileContents map[string][]byte) error {
+func parseDeclarations(pkg *model.GoPackage, files *fileSet, fset *token.FileSet, fileContents map[string][]byte) error {
 	// Track declarations by position for ordering
 	type declInfo struct {
 		declaration interface{}
@@ -126,7 +131,7 @@ func parseDeclarations(pkg *model.GoPackage, astPkg *ast.Package, fset *token.Fi
 	var declarations []declInfo
 
 	// Process each file's declarations
-	for filename, file := range astPkg.Files {
+	for filename, file := range files.Files {
 		for _, decl := range file.Decls {
 			switch d := decl.(type) {
 			case *ast.FuncDecl:
@@ -632,17 +637,17 @@ func parseTypes(d *ast.GenDecl, fset *token.FileSet, src []byte) ([]*model.GoTyp
 }
 
 // extractPackageDocs extracts package-level documentation and license headers
-func extractPackageDocs(pkg *model.GoPackage, astPkg *ast.Package, fset *token.FileSet, fileContents map[string][]byte) {
+func extractPackageDocs(pkg *model.GoPackage, files *fileSet, fset *token.FileSet, fileContents map[string][]byte) {
 	// Sort filenames to have a deterministic order
 	var filenames []string
-	for fname := range astPkg.Files {
+	for fname := range files.Files {
 		filenames = append(filenames, fname)
 	}
 	sort.Strings(filenames)
 
 	// Capture package-level comments from the first file
 	if len(filenames) > 0 {
-		firstFile := astPkg.Files[filenames[0]]
+		firstFile := files.Files[filenames[0]]
 
 		// Package documentation comment
 		if firstFile.Doc != nil {
