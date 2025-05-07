@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go Package Documentation - complex</title>
+    
+    <style>
+         
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        h1, h2, h3, h4 {
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        h1 {
+            font-size: 2em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid #eaecef;
+        }
+        
+        h2 {
+            font-size: 1.5em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid #eaecef;
+        }
+        
+        h3 {
+            font-size: 1.25em;
+        }
+        
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+        }
+        
+        th, td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e1e4e8;
+        }
+        
+        th {
+            background-color: #f6f8fa;
+            font-weight: 600;
+        }
+        
+        tr:hover {
+            background-color: #f6f8fa;
+        }
+        
+        .code {
+            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+            background-color: #f6f8fa;
+            padding: 16px;
+            border-radius: 3px;
+            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-break: normal;
+            word-wrap: normal;
+            tab-size: 4;
+        }
+        
+        .line-number {
+            display: inline-block;
+            width: 3em;
+            color: #6a737d;
+            text-align: right;
+            padding-right: 1em;
+            user-select: none;
+        }
+        
+        .doc-comment {
+            background-color: #fffdf7;
+            padding: 10px;
+            border-left: 3px solid #f9c270;
+            margin: 1em 0;
+        }
+        
+         
+        .nav {
+            background-color: #24292e;
+            padding: 10px 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .nav-title {
+            color: white;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .nav-links a {
+            color: #ffffff;
+            text-decoration: none;
+        }
+        
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .section {
+            margin-bottom: 2em;
+        }
+        
+        .summary {
+            margin-bottom: 1em;
+            color: #586069;
+        }
+        
+         
+        .card {
+            background-color: white;
+            border: 1px solid #e1e4e8;
+            border-radius: 3px;
+            margin-bottom: 1em;
+            overflow: hidden;
+        }
+        
+        .card-header {
+            background-color: #f6f8fa;
+            padding: 10px 15px;
+            border-bottom: 1px solid #e1e4e8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .card-title {
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .card-body {
+            padding: 15px;
+        }
+        
+         
+        .type-struct {
+            border-left: 4px solid #2ecc71;
+        }
+        
+        .type-interface {
+            border-left: 4px solid #3498db;
+        }
+        
+        .type-alias {
+            border-left: 4px solid #9b59b6;
+        }
+        
+        .type-other {
+            border-left: 4px solid #95a5a6;
+        }
+        
+         
+        .keyword {
+            color: #cf222e;
+            font-weight: bold;
+        }
+        
+        .string {
+            color: #0a3069;
+        }
+        
+        .comment {
+            color: #6a737d;
+            font-style: italic;
+        }
+        
+        .function {
+            color: #6f42c1;
+        }
+        
+        .constant {
+            color: #0550ae;
+            font-weight: bold;
+        }
+        
+        .variable {
+            color: #24292f;
+        }
+        
+         
+        
+    </style>
+    
+</head>
+<body>
+    <div class="container">
+        <div class="nav">
+            <div class="nav-title">complex</div>
+            <div class="nav-links">
+                <a href="#overview">Overview</a>
+                <a href="#types">Types</a>
+                <a href="#functions">Functions</a>
+                <a href="#constants">Constants</a>
+                <a href="#variables">Variables</a>
+            </div>
+        </div>
+        
+        <section id="overview" class="section">
+            <h1>Package complex</h1>
+            
+                <div class="doc-comment">Package complex demonstrates a more complex Go package with nested types,<br>multiple interfaces, type embedding, and more sophisticated declarations.</div>
+            
+            
+            <h2>Imports</h2>
+            
+                <div class="card">
+                    <div class="card-body">
+                        <ul>
+                            
+                                <li>
+                                    
+                                    "context"
+                                    
+                                </li>
+                            
+                                <li>
+                                    
+                                    "io"
+                                    
+                                </li>
+                            
+                                <li>
+                                    
+                                    "time"
+                                    
+                                </li>
+                            
+                        </ul>
+                    </div>
+                </div>
+            
+        </section>
+        
+        <section id="types" class="section">
+            <h2>Types</h2>
+            
+                
+                    <div class="card type-struct">
+                        <div class="card-header">
+                            <h3 class="card-title">type Configuration</h3>
+                            <span>struct</span>
+                        </div>
+                        <div class="card-body">
+                            
+                                <div class="doc-comment">Configuration holds global settings.</div>
+                            
+                            <pre class="code"><span class="line-number">1</span>// Configuration holds global settings.
+<span class="line-number">2</span><span class=<span class="string">"keyword"</span>>type</span> Configuration <span class=<span class="string">"keyword"</span>>struct</span> {
+<span class="line-number">3</span>	APIKey      string        // API key for external service
+<span class="line-number">4</span>	Timeout     time.Duration // Request timeout
+<span class="line-number">5</span>	MaxRetries  int           // Maximum number of retries
+<span class="line-number">6</span>	Concurrency int           // Number of concurrent operations
+<span class="line-number">7</span>	Debug       bool          // Enable debugging output
+<span class="line-number">8</span>}
+</pre>
+                            
+                            
+                                
+                                    <h4>Fields</h4>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Type</th>
+                                                <th>Tag</th>
+                                                <th>Comment</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            
+                                                <tr>
+                                                    <td>APIKey</td>
+                                                    <td>string</td>
+                                                    <td><code></code></td>
+                                                    <td>API key for external service</td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>Timeout</td>
+                                                    <td>time.Duration</td>
+                                                    <td><code></code></td>
+                                                    <td>Request timeout</td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>MaxRetries</td>
+                                                    <td>int</td>
+                                                    <td><code></code></td>
+                                                    <td>Maximum number of retries</td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>Concurrency</td>
+                                                    <td>int</td>
+                                                    <td><code></code></td>
+                                                    <td>Number of concurrent operations</td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>Debug</td>
+                                                    <td>bool</td>
+                                                    <td><code></code></td>
+                                                    <td>Enable debugging output</td>
+                                                </tr>
+                                            
+                                        </tbody>
+                                    </table>
+                                
+                            
+                            
+                            
+                        </div>
+                    </div>
+                
+                    <div class="card type-interface">
+                        <div class="card-header">
+                            <h3 class="card-title">type Logger</h3>
+                            <span>interface</span>
+                        </div>
+                        <div class="card-body">
+                            
+                                <div class="doc-comment">Logger represents a logging interface.</div>
+                            
+                            <pre class="code"><span class="line-number">1</span>// Logger represents a logging interface.
+<span class="line-number">2</span><span class=<span class="string">"keyword"</span>>type</span> Logger <span class=<span class="string">"keyword"</span>>interface</span> {
+<span class="line-number">3</span>	// Info logs informational messages.
+<span class="line-number">4</span>	Info(msg string, args ...any)
+<span class="line-number">5</span>
+<span class="line-number">6</span>	// Error logs error messages.
+<span class="line-number">7</span>	Error(err error, msg string, args ...any)
+<span class="line-number">8</span>
+<span class="line-number">9</span>	// Debug logs debug messages when debugging is enabled.
+<span class="line-number">10</span>	Debug(msg string, args ...any)
+<span class="line-number">11</span>
+<span class="line-number">12</span>	// WithField returns a new logger with the field attached.
+<span class="line-number">13</span>	WithField(key string, value any) Logger
+<span class="line-number">14</span>}
+</pre>
+                            
+                            
+                            
+                            
+                                
+                                    <h4>Methods</h4>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Signature</th>
+                                                <th>Comment</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            
+                                                <tr>
+                                                    <td>Info</td>
+                                                    <td>func(msg string, args ...any)</td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>Error</td>
+                                                    <td>func(err error, msg string, args ...any)</td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>Debug</td>
+                                                    <td>func(msg string, args ...any)</td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>WithField</td>
+                                                    <td>func(key string, value any) Logger</td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                        </tbody>
+                                    </table>
+                                
+                            
+                        </div>
+                    </div>
+                
+                    <div class="card type-interface">
+                        <div class="card-header">
+                            <h3 class="card-title">type Reader</h3>
+                            <span>interface</span>
+                        </div>
+                        <div class="card-body">
+                            
+                                <div class="doc-comment">Reader is an interface that reads data from a source.</div>
+                            
+                            <pre class="code"><span class="line-number">1</span>// Reader is an <span class=<span class="string">"keyword"</span>>interface</span> that reads data from a source.
+<span class="line-number">2</span><span class=<span class="string">"keyword"</span>>type</span> Reader <span class=<span class="string">"keyword"</span>>interface</span> {
+<span class="line-number">3</span>	io.Reader
+<span class="line-number">4</span>	io.Closer
+<span class="line-number">5</span>
+<span class="line-number">6</span>	// Reset positions the reader at the beginning.
+<span class="line-number">7</span>	Reset() error
+<span class="line-number">8</span>}
+</pre>
+                            
+                            
+                            
+                            
+                                
+                                    <h4>Methods</h4>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Signature</th>
+                                                <th>Comment</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            
+                                                <tr>
+                                                    <td>io.Reader</td>
+                                                    <td><em>embedded interface</em></td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>io.Closer</td>
+                                                    <td><em>embedded interface</em></td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>Reset</td>
+                                                    <td>func() error</td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                        </tbody>
+                                    </table>
+                                
+                            
+                        </div>
+                    </div>
+                
+                    <div class="card type-interface">
+                        <div class="card-header">
+                            <h3 class="card-title">type Writer</h3>
+                            <span>interface</span>
+                        </div>
+                        <div class="card-body">
+                            
+                                <div class="doc-comment">Writer is an interface that writes data to a destination.</div>
+                            
+                            <pre class="code"><span class="line-number">1</span>// Writer is an <span class=<span class="string">"keyword"</span>>interface</span> that writes data to a destination.
+<span class="line-number">2</span><span class=<span class="string">"keyword"</span>>type</span> Writer <span class=<span class="string">"keyword"</span>>interface</span> {
+<span class="line-number">3</span>	io.Writer
+<span class="line-number">4</span>	io.Closer
+<span class="line-number">5</span>
+<span class="line-number">6</span>	// Flush ensures all data is written.
+<span class="line-number">7</span>	Flush() error
+<span class="line-number">8</span>}
+</pre>
+                            
+                            
+                            
+                            
+                                
+                                    <h4>Methods</h4>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Signature</th>
+                                                <th>Comment</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            
+                                                <tr>
+                                                    <td>io.Writer</td>
+                                                    <td><em>embedded interface</em></td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>io.Closer</td>
+                                                    <td><em>embedded interface</em></td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>Flush</td>
+                                                    <td>func() error</td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                        </tbody>
+                                    </table>
+                                
+                            
+                        </div>
+                    </div>
+                
+                    <div class="card type-struct">
+                        <div class="card-header">
+                            <h3 class="card-title">type DataProcessor</h3>
+                            <span>struct</span>
+                        </div>
+                        <div class="card-body">
+                            
+                                <div class="doc-comment">DataProcessor processes data from a Reader and writes to a Writer.</div>
+                            
+                            <pre class="code"><span class="line-number">1</span>// DataProcessor processes data from a Reader and writes to a Writer.
+<span class="line-number">2</span><span class=<span class="string">"keyword"</span>>type</span> DataProcessor <span class=<span class="string">"keyword"</span>>struct</span> {
+<span class="line-number">3</span>	reader   Reader
+<span class="line-number">4</span>	writer   Writer
+<span class="line-number">5</span>	logger   Logger
+<span class="line-number">6</span>	config   *Configuration
+<span class="line-number">7</span>	handlers []DataHandler
+<span class="line-number">8</span>	stats    ProcessingStats
+<span class="line-number">9</span>}
+</pre>
+                            
+                            
+                                
+                                    <h4>Fields</h4>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Type</th>
+                                                <th>Tag</th>
+                                                <th>Comment</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            
+                                                <tr>
+                                                    <td>reader</td>
+                                                    <td>Reader</td>
+                                                    <td><code></code></td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>writer</td>
+                                                    <td>Writer</td>
+                                                    <td><code></code></td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>logger</td>
+                                                    <td>Logger</td>
+                                                    <td><code></code></td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>config</td>
+                                                    <td>*Configuration</td>
+                                                    <td><code></code></td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>handlers</td>
+                                                    <td>[]DataHandler</td>
+                                                    <td><code></code></td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>stats</td>
+                                                    <td>ProcessingStats</td>
+                                                    <td><code></code></td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                        </tbody>
+                                    </table>
+                                
+                            
+                            
+                            
+                        </div>
+                    </div>
+                
+                    <div class="card type-other">
+                        <div class="card-header">
+                            <h3 class="card-title">type DataHandler</h3>
+                            <span>type</span>
+                        </div>
+                        <div class="card-body">
+                            
+                                <div class="doc-comment">DataHandler is a function type that processes data.</div>
+                            
+                            <pre class="code"><span class="line-number">1</span>// DataHandler is a function <span class=<span class="string">"keyword"</span>>type</span> that processes data.
+<span class="line-number">2</span><span class=<span class="string">"keyword"</span>>type</span> DataHandler func([]byte) ([]byte, error)
+</pre>
+                            
+                            
+                            
+                            
+                        </div>
+                    </div>
+                
+                    <div class="card type-struct">
+                        <div class="card-header">
+                            <h3 class="card-title">type ProcessingStats</h3>
+                            <span>struct</span>
+                        </div>
+                        <div class="card-body">
+                            
+                                <div class="doc-comment">ProcessingStats tracks statistics about data processing.</div>
+                            
+                            <pre class="code"><span class="line-number">1</span>// ProcessingStats tracks statistics about data processing.
+<span class="line-number">2</span><span class=<span class="string">"keyword"</span>>type</span> ProcessingStats <span class=<span class="string">"keyword"</span>>struct</span> {
+<span class="line-number">3</span>	BytesRead    int64
+<span class="line-number">4</span>	BytesWritten int64
+<span class="line-number">5</span>	StartTime    time.Time
+<span class="line-number">6</span>	EndTime      time.Time
+<span class="line-number">7</span>	Errors       int
+<span class="line-number">8</span>}
+</pre>
+                            
+                            
+                                
+                                    <h4>Fields</h4>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Type</th>
+                                                <th>Tag</th>
+                                                <th>Comment</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            
+                                                <tr>
+                                                    <td>BytesRead</td>
+                                                    <td>int64</td>
+                                                    <td><code></code></td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>BytesWritten</td>
+                                                    <td>int64</td>
+                                                    <td><code></code></td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>StartTime</td>
+                                                    <td>time.Time</td>
+                                                    <td><code></code></td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>EndTime</td>
+                                                    <td>time.Time</td>
+                                                    <td><code></code></td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                                <tr>
+                                                    <td>Errors</td>
+                                                    <td>int</td>
+                                                    <td><code></code></td>
+                                                    <td></td>
+                                                </tr>
+                                            
+                                        </tbody>
+                                    </table>
+                                
+                            
+                            
+                            
+                        </div>
+                    </div>
+                
+            
+        </section>
+        
+        <section id="functions" class="section">
+            <h2>Functions and Methods</h2>
+            
+                
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                
+                                    func (p *DataProcessor) Process
+                                
+                            </h3>
+                        </div>
+                        <div class="card-body">
+                            
+                                <div class="doc-comment">Process reads data from the reader and writes processed data to the writer.</div>
+                            
+                            <pre class="code"><span class="line-number">1</span>// Process reads data from the reader and writes processed data to the writer.
+<span class="line-number">2</span><span class=<span class="string">"keyword"</span>>func</span> (p *DataProcessor) Process(ctx context.Context) (ProcessingStats, error) {
+<span class="line-number">3</span>	p.stats.StartTime = time.Now()
+<span class="line-number">4</span>
+<span class="line-number">5</span>	buffer := make([]byte, 4096)
+<span class="line-number">6</span>	<span class=<span class="string">"keyword"</span>>var</span> err error
+<span class="line-number">7</span>
+<span class="line-number">8</span>	for {
+<span class="line-number">9</span>		select {
+<span class="line-number">10</span>		case &lt;-ctx.Done():
+<span class="line-number">11</span>			p.logger.Info(&#34;Processing canceled&#34;)
+<span class="line-number">12</span>			<span class=<span class="string">"keyword"</span>>return</span> p.stats, ctx.Err()
+<span class="line-number">13</span>		default:
+<span class="line-number">14</span>			// Read data
+<span class="line-number">15</span>			n, err := p.reader.Read(buffer)
+<span class="line-number">16</span>			if err != nil &amp;&amp; err != io.EOF {
+<span class="line-number">17</span>				p.stats.Errors++
+<span class="line-number">18</span>				p.logger.Error(err, &#34;Error reading data&#34;)
+<span class="line-number">19</span>				continue
+<span class="line-number">20</span>			}
+<span class="line-number">21</span>
+<span class="line-number">22</span>			if n == 0 {
+<span class="line-number">23</span>				break
+<span class="line-number">24</span>			}
+<span class="line-number">25</span>
+<span class="line-number">26</span>			p.stats.BytesRead += int64(n)
+<span class="line-number">27</span>			data := buffer[:n]
+<span class="line-number">28</span>
+<span class="line-number">29</span>			// Apply handlers
+<span class="line-number">30</span>			<span class=<span class="string">"keyword"</span>>var</span> processErr error
+<span class="line-number">31</span>			for _, handler := range p.handlers {
+<span class="line-number">32</span>				data, processErr = handler(data)
+<span class="line-number">33</span>				if processErr != nil {
+<span class="line-number">34</span>					p.stats.Errors++
+<span class="line-number">35</span>					p.logger.Error(processErr, &#34;Error processing data&#34;)
+<span class="line-number">36</span>					break
+<span class="line-number">37</span>				}
+<span class="line-number">38</span>			}
+<span class="line-number">39</span>
+<span class="line-number">40</span>			if processErr != nil {
+<span class="line-number">41</span>				continue
+<span class="line-number">42</span>			}
+<span class="line-number">43</span>
+<span class="line-number">44</span>			// Write processed data
+<span class="line-number">45</span>			written, err := p.writer.Write(data)
+<span class="line-number">46</span>			if err != nil {
+<span class="line-number">47</span>				p.stats.Errors++
+<span class="line-number">48</span>				p.logger.Error(err, &#34;Error writing data&#34;)
+<span class="line-number">49</span>				continue
+<span class="line-number">50</span>			}
+<span class="line-number">51</span>
+<span class="line-number">52</span>			p.stats.BytesWritten += int64(written)
+<span class="line-number">53</span>
+<span class="line-number">54</span>			if err == io.EOF {
+<span class="line-number">55</span>				break
+<span class="line-number">56</span>			}
+<span class="line-number">57</span>		}
+<span class="line-number">58</span>	}
+<span class="line-number">59</span>
+<span class="line-number">60</span>	if flushErr := p.writer.Flush(); flushErr != nil {
+<span class="line-number">61</span>		p.logger.Error(flushErr, &#34;Error flushing writer&#34;)
+<span class="line-number">62</span>		p.stats.Errors++
+<span class="line-number">63</span>	}
+<span class="line-number">64</span>
+<span class="line-number">65</span>	p.stats.EndTime = time.Now()
+<span class="line-number">66</span>	<span class=<span class="string">"keyword"</span>>return</span> p.stats, err
+<span class="line-number">67</span>}
+</pre>
+                        </div>
+                    </div>
+                
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                
+                                    func NewDataProcessor
+                                
+                            </h3>
+                        </div>
+                        <div class="card-body">
+                            
+                                <div class="doc-comment">NewDataProcessor creates a new DataProcessor with the given configuration.</div>
+                            
+                            <pre class="code"><span class="line-number">1</span>// NewDataProcessor creates a new DataProcessor with the given configuration.
+<span class="line-number">2</span><span class=<span class="string">"keyword"</span>>func</span> NewDataProcessor(reader Reader, writer Writer, logger Logger, config *Configuration) *DataProcessor {
+<span class="line-number">3</span>	<span class=<span class="string">"keyword"</span>>return</span> &amp;DataProcessor{
+<span class="line-number">4</span>		reader: reader,
+<span class="line-number">5</span>		writer: writer,
+<span class="line-number">6</span>		logger: logger,
+<span class="line-number">7</span>		config: config,
+<span class="line-number">8</span>	}
+<span class="line-number">9</span>}
+</pre>
+                        </div>
+                    </div>
+                
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                
+                                    func (p *DataProcessor) AddHandler
+                                
+                            </h3>
+                        </div>
+                        <div class="card-body">
+                            
+                                <div class="doc-comment">AddHandler adds a data handler to the processor chain.</div>
+                            
+                            <pre class="code"><span class="line-number">1</span>// AddHandler adds a data handler to the processor chain.
+<span class="line-number">2</span><span class=<span class="string">"keyword"</span>>func</span> (p *DataProcessor) AddHandler(handler DataHandler) {
+<span class="line-number">3</span>	p.handlers = append(p.handlers, handler)
+<span class="line-number">4</span>}
+</pre>
+                        </div>
+                    </div>
+                
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                
+                                    func (p *DataProcessor) ProcessDuration
+                                
+                            </h3>
+                        </div>
+                        <div class="card-body">
+                            
+                                <div class="doc-comment">ProcessDuration returns the total processing duration.</div>
+                            
+                            <pre class="code"><span class="line-number">1</span>// ProcessDuration returns the total processing duration.
+<span class="line-number">2</span><span class=<span class="string">"keyword"</span>>func</span> (p *DataProcessor) ProcessDuration() time.Duration {
+<span class="line-number">3</span>	if p.stats.StartTime.IsZero() || p.stats.EndTime.IsZero() {
+<span class="line-number">4</span>		<span class=<span class="string">"keyword"</span>>return</span> 0
+<span class="line-number">5</span>	}
+<span class="line-number">6</span>	<span class=<span class="string">"keyword"</span>>return</span> p.stats.EndTime.Sub(p.stats.StartTime)
+<span class="line-number">7</span>}
+</pre>
+                        </div>
+                    </div>
+                
+            
+        </section>
+        
+        <section id="constants" class="section">
+            <h2>Constants</h2>
+            
+                <div class="card">
+                    <div class="card-body">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                    <th>Comment</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                
+                                    <tr>
+                                        <td>DefaultTimeout</td>
+                                        <td></td>
+                                        <td><code>30 * time.Second</code></td>
+                                        <td></td>
+                                    </tr>
+                                
+                                    <tr>
+                                        <td>DefaultMaxRetries</td>
+                                        <td></td>
+                                        <td><code>3</code></td>
+                                        <td></td>
+                                    </tr>
+                                
+                                    <tr>
+                                        <td>DefaultConcurrency</td>
+                                        <td></td>
+                                        <td><code>4</code></td>
+                                        <td></td>
+                                    </tr>
+                                
+                                    <tr>
+                                        <td>DefaultBufferSize</td>
+                                        <td></td>
+                                        <td><code>4096</code></td>
+                                        <td></td>
+                                    </tr>
+                                
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            
+        </section>
+        
+        <section id="variables" class="section">
+            <h2>Variables</h2>
+            
+                <div class="card">
+                    <div class="card-body">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                    <th>Comment</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                
+                                    <tr>
+                                        <td>DefaultConfig</td>
+                                        <td></td>
+                                        <td><code>&amp;Configuration{
+	Timeout:     DefaultTimeout,
+	MaxRetries:  DefaultMaxRetries,
+	Concurrency: DefaultConcurrency,
+	Debug:       false,
+}</code></td>
+                                        <td></td>
+                                    </tr>
+                                
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            
+        </section>
+        
+        <footer>
+            <p>Generated by Go-Tree HTML Generator</p>
+        </footer>
+    </div>
+</body>
+</html>

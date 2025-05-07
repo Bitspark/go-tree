@@ -3,13 +3,13 @@
 package html
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"strings"
 
 	"bitspark.dev/go-tree/pkg/core/model"
+	"bitspark.dev/go-tree/pkg/visual/formatter"
 )
 
 // Generator handles HTML generation from package data
@@ -62,39 +62,9 @@ func (g *Generator) GenerateFromJSON(jsonData []byte) (string, error) {
 
 // Generate converts a GoPackage model to an HTML document
 func (g *Generator) Generate(pkg *model.GoPackage) (string, error) {
-	// Prepare template data
-	data := struct {
-		Package            *model.GoPackage
-		Title              string
-		IncludeCSS         bool
-		CustomCSS          template.CSS
-		EnableHighlighting bool
-	}{
-		Package:            pkg,
-		Title:              g.options.Title,
-		IncludeCSS:         g.options.IncludeCSS,
-		CustomCSS:          template.CSS(g.options.CustomCSS),
-		EnableHighlighting: g.options.SyntaxHighlighting,
-	}
-
-	// Initialize template
-	tmpl, err := template.New("html").Funcs(template.FuncMap{
-		"formatCode":    formatCode,
-		"typeKindClass": typeKindClass,
-		"formatDoc":     formatDocComment,
-	}).Parse(htmlTemplate)
-
-	if err != nil {
-		return "", fmt.Errorf("failed to parse template: %w", err)
-	}
-
-	// Execute the template
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("failed to execute template: %w", err)
-	}
-
-	return buf.String(), nil
+	visitor := NewHTMLVisitor(g.options)
+	baseFormatter := formatter.NewBaseFormatter(visitor)
+	return baseFormatter.Format(pkg)
 }
 
 // formatCode formats Go code with syntax highlighting classes

@@ -174,6 +174,8 @@ func (a *Analyzer) GenerateInterfaceCode(def InterfaceDefinition) string {
 }
 
 // Helper function to check if a method name is in a slice
+//
+//nolint:unused
 func containsMethod(methods []string, methodName string) bool {
 	for _, m := range methods {
 		if m == methodName {
@@ -184,6 +186,8 @@ func containsMethod(methods []string, methodName string) bool {
 }
 
 // Helper function to get all types implementing a method
+//
+//nolint:unused
 func getTypesForMethod(commonMethodMap map[string][]string, methodName string) []string {
 	if types, exists := commonMethodMap[methodName]; exists {
 		return types
@@ -192,6 +196,8 @@ func getTypesForMethod(commonMethodMap map[string][]string, methodName string) [
 }
 
 // Helper function to find intersection of two slices of types
+//
+//nolint:unused
 func intersectTypes(list1, list2 []string) []string {
 	result := []string{}
 	set := make(map[string]bool)
@@ -212,6 +218,8 @@ func intersectTypes(list1, list2 []string) []string {
 }
 
 // Helper function to check if a type is in a slice
+//
+//nolint:unused
 func containsType(types []string, typeName string) bool {
 	for _, t := range types {
 		if t == typeName {

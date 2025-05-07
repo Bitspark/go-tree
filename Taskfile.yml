@@ -1,0 +1,182 @@
+version: '3'
+
+vars:
+  BINARY_NAME: gotree
+  MAIN_PKG: ./cmd/gotree
+  VERSION:
+    sh: git describe --tags --always --dirty || echo "dev"
+
+tasks:
+  # Development tasks
+  dev:
+    desc: Run development mode with hot reload
+    cmds:
+      - task: install-tools
+      - air -c .air.toml
+
+  install-tools:
+    desc: Install development tools
+    cmds:
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - go install golang.org/x/tools/cmd/goimports@latest
+      - go install golang.org/x/vuln/cmd/govulncheck@latest
+      - go install github.com/securego/gosec/v2/cmd/gosec@latest
+      - go install github.com/air-verse/air@latest
+
+  # Build tasks
+  build:
+    desc: Build the CLI binary
+    cmds:
+      - mkdir -p bin
+      - go build -v -ldflags "-X main.version={{.VERSION}}" -o bin/{{.BINARY_NAME}} {{.MAIN_PKG}}
+    sources:
+      - "**/*.go"
+    generates:
+      - bin/{{.BINARY_NAME}}
+
+  build:all:
+    desc: Build for all supported platforms
+    cmds:
+      - task: build:linux
+      - task: build:windows
+      - task: build:darwin
+
+  build:linux:
+    desc: Build for Linux
+    cmds:
+      - mkdir -p bin
+      - GOOS=linux GOARCH=amd64 go build -v -ldflags "-X main.version={{.VERSION}}" -o bin/{{.BINARY_NAME}}_linux_amd64 {{.MAIN_PKG}}
+      - GOOS=linux GOARCH=arm64 go build -v -ldflags "-X main.version={{.VERSION}}" -o bin/{{.BINARY_NAME}}_linux_arm64 {{.MAIN_PKG}}
+
+  build:windows:
+    desc: Build for Windows
+    cmds:
+      - mkdir -p bin
+      - GOOS=windows GOARCH=amd64 go build -v -ldflags "-X main.version={{.VERSION}}" -o bin/{{.BINARY_NAME}}_windows_amd64.exe {{.MAIN_PKG}}
+
+  build:darwin:
+    desc: Build for macOS
+    cmds:
+      - mkdir -p bin
+      - GOOS=darwin GOARCH=amd64 go build -v -ldflags "-X main.version={{.VERSION}}" -o bin/{{.BINARY_NAME}}_darwin_amd64 {{.MAIN_PKG}}
+      - GOOS=darwin GOARCH=arm64 go build -v -ldflags "-X main.version={{.VERSION}}" -o bin/{{.BINARY_NAME}}_darwin_arm64 {{.MAIN_PKG}}
+
+  # Test tasks
+  test:
+    desc: Run tests
+    cmds:
+      - go test -v ./...
+    sources:
+      - "**/*.go"
+      - "!**/vendor/**"
+
+  test:race:
+    desc: Run tests with race detection
+    cmds:
+      - go test -v -race ./...
+
+  test:coverage:
+    desc: Run tests with coverage
+    cmds:
+      - go test -coverprofile=coverage.out -covermode=atomic ./...
+      - go tool cover -html=coverage.out -o coverage.html
+
+  test:benchmark:
+    desc: Run benchmarks
+    cmds:
+      - go test -v -bench=. -benchmem ./...
+
+  # Lint tasks
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run ./...
+    silent: false
+
+  lint:verbose:
+    desc: Run golangci-lint with verbose output
+    cmds:
+      - golangci-lint run --verbose ./...
+    silent: false
+    
+  lint:fix:
+    desc: Run golangci-lint with auto-fix when possible
+    cmds:
+      - golangci-lint run --fix ./...
+    silent: false
+
+  format:
+    desc: Format code using goimports
+    cmds:
+      - goimports -w -local bitspark.dev ./cmd ./internal ./pkg ./tree ./examples
+    silent: false
+
+  # Security tasks
+  security:check:
+    desc: Run security checks
+    cmds:
+      - govulncheck ./...
+      - gosec ./...
+
+  # Documentation tasks
+  docs:
+    desc: Generate documentation
+    cmds:
+      - mkdir -p ./docs
+      - go doc -all ./tree > ./docs/tree.txt
+      - go doc -all ./pkg > ./docs/pkg.txt
+
+  docs:serve:
+    desc: Serve documentation with godoc
+    cmds:
+      - go install golang.org/x/tools/cmd/godoc@latest
+      - godoc -http=:6060
+
+  # Clean up tasks
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf bin/
+      - rm -rf tmp/
+      - rm -f coverage.out coverage.html
+      - go clean -cache -testcache
+
+  # Dependency management
+  deps:update:
+    desc: Update dependencies
+    cmds:
+      - go get -u ./...
+      - go mod tidy
+
+  deps:verify:
+    desc: Verify dependencies
+    cmds:
+      - go mod verify
+      - go mod tidy
+
+  # Run the CLI tool
+  run:
+    desc: Run the CLI tool (use CLI_ARGS="your args here" to pass arguments)
+    dir: "{{.MAIN_PKG}}"
+    cmds:
+      - go run main.go {{.CLI_ARGS}}
+    silent: true
+
+  run:help:
+    desc: Show CLI tool help
+    dir: "{{.MAIN_PKG}}"
+    cmds:
+      - go run main.go --help
+    silent: true
+
+  run:example:
+    desc: Run the CLI tool with an example
+    dir: "{{.MAIN_PKG}}"
+    cmds:
+      - go run main.go -src ../../examples/basic -json
+
+  # Default task
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list 

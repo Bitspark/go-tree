@@ -9,9 +9,16 @@
 # Build output
 /build/
 bin/
+tmp/
 
-# Output of the go coverage tool, specifically when used with LiteIDE
+# Testing and coverage
 *.out
+coverage.html
+build-errors.log
+
+# E2E test outputs
+/pkg/visual/e2e/testdata/outputs/
+*.current
 
 # IDE/editor specific files
 .vscode/
@@ -21,3 +28,12 @@ bin/
 
 # Local data
 data/
+
+# Air temp files
+.air.toml.tmp
+
+# Documentation generated files
+/docs/*.txt
+
+# Dependency directories
+vendor/

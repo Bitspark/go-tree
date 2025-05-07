@@ -114,10 +114,61 @@ func TestGenerate(t *testing.T) {
 	}
 }
 
+// TestHTMLVisitor tests the HTML visitor implementation
+func TestHTMLVisitor(t *testing.T) {
+	// Create a simple package
+	pkg := &model.GoPackage{
+		Name: "testpkg",
+		Types: []model.GoType{
+			{Name: "TestType", Kind: "struct"},
+		},
+	}
+
+	// Create a visitor with custom options
+	options := Options{
+		Title:              "Test Title",
+		IncludeCSS:         true,
+		CustomCSS:          ".test { color: blue; }",
+		SyntaxHighlighting: true,
+	}
+
+	visitor := NewHTMLVisitor(options)
+
+	// Test visiting the package
+	err := visitor.VisitPackage(pkg)
+	if err != nil {
+		t.Fatalf("VisitPackage failed: %v", err)
+	}
+
+	// Test visiting a type
+	err = visitor.VisitType(pkg.Types[0])
+	if err != nil {
+		t.Fatalf("VisitType failed: %v", err)
+	}
+
+	// Test getting the result
+	result, err := visitor.Result()
+	if err != nil {
+		t.Fatalf("Result failed: %v", err)
+	}
+
+	// Check that the result contains expected elements
+	expectedElements := []string{
+		"<title>Test Title - testpkg</title>",
+		".test { color: blue; }",
+	}
+
+	for _, expected := range expectedElements {
+		if !strings.Contains(result, expected) {
+			t.Errorf("Result doesn't contain expected element: %s", expected)
+		}
+	}
+}
+
 // TestGenerateFromRealPackage tests HTML generation with a real parsed package
 func TestGenerateFromRealPackage(t *testing.T) {
 	// Skip this test if we can't find the test package
-	pkg, err := parse.ParsePackage("../../../test/samplepackage")
+	pkg, err := parse.ParsePackage("../../../testdata/samplepackage")
 	if err != nil {
 		t.Skipf("Skipping real package test: %v", err)
 	}

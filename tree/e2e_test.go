@@ -22,7 +22,12 @@ func TestEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		err := os.RemoveAll(tempDir)
+		if err != nil {
+			t.Logf("Failed to remove temp directory: %v", err)
+		}
+	}()
 
 	// Create directories for the sample package and the main program
 	pkgDir := filepath.Join(tempDir, "samplepackage")
@@ -36,7 +41,7 @@ func TestEndToEnd(t *testing.T) {
 	}
 
 	// Parse the sample package
-	pkg, err := Parse("../test/samplepackage")
+	pkg, err := Parse("../testdata/samplepackage")
 	if err != nil {
 		t.Fatalf("Failed to parse package: %v", err)
 	}
@@ -112,10 +117,15 @@ func TestRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		err := os.RemoveAll(tempDir)
+		if err != nil {
+			t.Logf("Failed to remove temp directory: %v", err)
+		}
+	}()
 
 	// Parse original package
-	originalPkg, err := Parse("../test/samplepackage")
+	originalPkg, err := Parse("../testdata/samplepackage")
 	if err != nil {
 		t.Fatalf("Failed to parse original package: %v", err)
 	}

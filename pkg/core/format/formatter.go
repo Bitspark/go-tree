@@ -282,9 +282,10 @@ func formatType(out *strings.Builder, t model.GoType) {
 	// Otherwise reconstruct the type declaration
 	out.WriteString("type " + t.Name + " ")
 
-	if t.Kind == "alias" {
+	switch t.Kind {
+	case "alias":
 		out.WriteString("= " + t.AliasOf)
-	} else if t.Kind == "struct" {
+	case "struct":
 		out.WriteString("struct {\n")
 		for _, field := range t.Fields {
 			if field.Doc != "" {
@@ -306,7 +307,7 @@ func formatType(out *strings.Builder, t model.GoType) {
 			out.WriteString("\n")
 		}
 		out.WriteString("}")
-	} else if t.Kind == "interface" {
+	case "interface":
 		out.WriteString("interface {\n")
 		for _, method := range t.InterfaceMethods {
 			if method.Doc != "" {
@@ -325,7 +326,7 @@ func formatType(out *strings.Builder, t model.GoType) {
 			out.WriteString("\n")
 		}
 		out.WriteString("}")
-	} else {
+	default:
 		// Regular type
 		out.WriteString(t.UnderlyingType)
 	}

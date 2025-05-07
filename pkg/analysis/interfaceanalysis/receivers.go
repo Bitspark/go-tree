@@ -116,7 +116,7 @@ func (a *Analyzer) FindCommonMethods(analysis *ReceiverAnalysis) map[string][]st
 				// create a unique key that includes the signature hash
 				// This is a simple approach - in a real implementation we might want more sophisticated
 				// signature compatibility checking
-				methodName = methodName + "_" + strings.Replace(method.Signature, " ", "", -1)
+				methodName = methodName + "_" + strings.ReplaceAll(method.Signature, " ", "")
 				methodSignatures[methodName] = method.Signature
 			}
 
