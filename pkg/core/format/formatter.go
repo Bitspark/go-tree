@@ -1,11 +1,12 @@
-// Package formatter provides functionality for formatting Go packages
-package formatter
+// Package format provides functionality for formatting Go packages.
+// This package is part of the public API for go-tree.
+package format
 
 import (
 	"fmt"
 	"strings"
 
-	"bitspark.dev/go-tree/internal/model"
+	"bitspark.dev/go-tree/pkg/core/model"
 )
 
 // FormatPackage formats a GoPackage model into a single Go source file.

@@ -1,9 +1,9 @@
-package parser
+package parse
 
 import (
 	"testing"
 
-	"bitspark.dev/go-tree/internal/model"
+	"bitspark.dev/go-tree/pkg/core/model"
 )
 
 func TestParsePackage(t *testing.T) {

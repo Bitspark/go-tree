@@ -1,4 +1,5 @@
-// Package model defines the core structures used for representing Go packages
+// Package model defines the core structures used for representing Go packages.
+// This package is part of the public API for go-tree.
 package model
 
 // GoPackage represents a complete Go package with all its components

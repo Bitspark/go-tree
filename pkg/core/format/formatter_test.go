@@ -1,16 +1,16 @@
-package formatter
+package format
 
 import (
 	"strings"
 	"testing"
 
-	"bitspark.dev/go-tree/internal/model"
-	"bitspark.dev/go-tree/internal/parser"
+	"bitspark.dev/go-tree/pkg/core/model"
+	"bitspark.dev/go-tree/pkg/core/parse"
 )
 
 func TestFormatPackage(t *testing.T) {
 	// First parse a package
-	pkg, err := parser.ParsePackage("../../test/samplepackage")
+	pkg, err := parse.ParsePackage("../../test/samplepackage")
 	if err != nil {
 		t.Fatalf("Failed to parse package: %v", err)
 	}
