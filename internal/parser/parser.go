@@ -9,6 +9,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,6 +24,11 @@ type fileSet struct {
 
 // ParsePackage parses a Go package from the specified directory and returns a model.GoPackage
 func ParsePackage(dir string) (*model.GoPackage, error) {
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute path for directory: %w", err)
+	}
+
 	fset := token.NewFileSet()
 	// Parse all files in the directory, excluding tests, with comments
 	pkgs, err := parser.ParseDir(fset, dir, func(fi os.FileInfo) bool {
@@ -52,6 +58,17 @@ func ParsePackage(dir string) (*model.GoPackage, error) {
 	// Read all files' contents for extracting original source snippets
 	fileContents := make(map[string][]byte)
 	for filename := range files.Files {
+		// Validate the filename is within the package directory to prevent path traversal
+		absFilename, err := filepath.Abs(filename)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get absolute path for file %s: %w", filename, err)
+		}
+
+		// Ensure file is within the package directory
+		if !strings.HasPrefix(absFilename, absDir) {
+			return nil, fmt.Errorf("file %s is outside package directory", filename)
+		}
+
 		data, err := os.ReadFile(filename)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read %s: %w", filename, err)
