@@ -10,7 +10,7 @@ import (
 
 func TestFormatPackage(t *testing.T) {
 	// First parse a package
-	pkg, err := parse.ParsePackage("../../test/samplepackage")
+	pkg, err := parse.ParsePackage("../../../test/samplepackage")
 	if err != nil {
 		t.Fatalf("Failed to parse package: %v", err)
 	}
