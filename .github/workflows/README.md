@@ -2,38 +2,54 @@
 
 This directory contains GitHub Actions workflows that implement a comprehensive CI/CD pipeline for this Go project.
 
+## Workflow Structure
+
+We use a reusable workflow pattern to ensure consistency and prevent drift between environments:
+
+- **Shared Go Checks** (`shared-go-checks.yml`) - Core reusable workflow with all tests, linting, and security checks
+- **Feature Branch Check** - Minimal checks for all feature branches
+- **PR Check** - Complete validation for pull requests to main/dev
+- **Development Pipeline** - Full testing for the dev branch
+- **Main Pipeline** - Production validation plus release management
+
 ## Workflow Overview
+
+### Shared Go Checks (`shared-go-checks.yml`)
+Reusable workflow that's called by all other workflows.
+- Parameterized to allow different behavior based on environment
+- Ensures identical testing methodology across all pipelines
+- Prevents test configuration drift
+
+### Feature Branch Check (`feature-check.yml`)
+Triggered on pushes to all branches except main and dev.
+- Basic validation using shared workflow
+- Optimized for fast feedback during development
 
 ### PR Check (`pr-check.yml`)
 Triggered on pull requests to `main` and `dev` branches.
-- Fast validation with short tests
-- Basic code quality checks
+- Complete validation using shared workflow
 - Dependency security review
-- Optimized for quick feedback
+- Ensures PRs contain the same quality checks as main
 
 ### Development Pipeline (`dev-pipeline.yml`)
 Triggered on pushes to the `dev` branch.
 - Full test suite with race detection
 - Code coverage reporting
-- Advanced linting
-- Security scanning
-- Build verification
 
 ### Main Pipeline (`main-pipeline.yml`)
 Triggered on pushes to the `main` branch and on release creation.
-- Comprehensive tests (highest standards)
-- Strict linting and security analysis
+- Complete validation using shared workflow with strictest settings
 - Cross-platform builds (Linux, Windows, macOS)
 - Release automation
 - Documentation deployment
 
-## Architecture Decisions
+## Architecture Benefits
 
-1. **Environment-Based Separation:** Different workflows for different environments ensure appropriate levels of testing at each stage.
-2. **Progressive Validation:** Tests become more comprehensive as code moves toward production.
-3. **Parallel Jobs:** Tests, linting, and security scans run in parallel to minimize workflow duration.
-4. **Matrix Builds:** Cross-platform compilation ensures compatibility across operating systems.
-5. **Artifact Management:** Build artifacts are preserved and published with releases.
+1. **Single Source of Truth:** Test logic exists in only one place
+2. **Automatic Consistency:** All pipelines use identical validation rules
+3. **Future-Proof:** Adding a new check automatically applies to all environments
+4. **Parameterization:** Different levels of validation for different contexts
+5. **Maintainability:** Easier to understand and modify the pipeline
 
 ## Setup Requirements
 
@@ -47,8 +63,9 @@ Triggered on pushes to the `main` branch and on release creation.
 
 ## Customizing
 
-Each workflow can be customized as needed:
-1. Adjust Go version in each workflow as required
-2. Modify the matrix build settings for your specific targets
-3. Update documentation generation for your project needs
-4. Configure branch names to match your development workflow 
+To modify the shared validation process:
+1. Edit the `shared-go-checks.yml` file to add or modify checks
+2. Adjust parameters in the calling workflows as needed
+
+To add new environment-specific steps:
+1. Add them directly to the relevant workflow file 
