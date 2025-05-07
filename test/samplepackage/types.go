@@ -30,22 +30,24 @@ type timestamps struct {
 	UpdatedAt int64
 }
 
-// Role defines user permissions
+// Role defines user permissions.
 type Role string
 
 // List of predefined roles
 const (
-	// Admin has full permissions
+	// RoleAdmin has full permissions.
 	RoleAdmin Role = "admin"
 
-	// User has limited permissions
+	// RoleUser has limited permissions.
 	RoleUser Role = "user"
 
-	// Guest has read-only access
+	// RoleGuest has read-only access.
 	RoleGuest Role = "guest"
 )
 
 // Interface types
+
+// Authenticator is an interface.
 type Authenticator interface {
 	// Login attempts to authenticate the user
 	Login(username, password string) (bool, error)
@@ -53,6 +55,8 @@ type Authenticator interface {
 	Logout() error
 
 	// Embedded interface
+
+	// Validator is embedded.
 	Validator
 }
 
@@ -62,7 +66,11 @@ type Validator interface {
 }
 
 // Type alias example
+
+// UserMap is a user map.
 type UserMap = map[string]*User
 
 // Function type
+
+// AuthHandler is an auth handler.
 type AuthHandler func(username, password string) bool

@@ -12,8 +12,12 @@ var (
 	DefaultTimeout = 30 * time.Second
 
 	// Error messages
+
+	// ErrInvalidCredentials indicates the username of password is wrong.
 	ErrInvalidCredentials = errors.New("invalid username or password")
-	ErrPermissionDenied   = errors.New("permission denied")
+
+	// ErrPermissionDenied indicates insufficient permissions.
+	ErrPermissionDenied = errors.New("permission denied")
 )
 
 // NewUser creates a new user with default values
@@ -53,7 +57,7 @@ func (u *User) Login(username, password string) (bool, error) {
 }
 
 // Logout implements the Authenticator interface
-func (u *User) Logout() error {
+func (*User) Logout() error {
 	// Implement logout logic
 	return nil
 }

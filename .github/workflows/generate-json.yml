@@ -1,4 +1,4 @@
-name: Generate Documentation
+name: 'GoTree: Generate JSON'
 
 on:
   push:
