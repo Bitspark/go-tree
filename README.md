@@ -1,15 +1,15 @@
-> Library and command-line tool for parsing and formatting Go packages.
-
-[![](assets/go-tree.png)](https://bitspark.dev/go-tree)
-
-# Go-Tree
-
-[![codecov](https://codecov.io/gh/Bitspark/go-tree/branch/main/graph/badge.svg?token=CRRt8eRJBz)](https://codecov.io/gh/Bitspark/go-tree)
+[![codecov](https://codecov.io/gh/Bitspark/go-tree/branch/main/graph/badge.svg?token=CRRt8eRJBz)](https://app.codecov.io/gh/Bitspark/go-tree/tree/main)
 [![CI](https://github.com/Bitspark/go-tree/actions/workflows/main-pipeline.yml/badge.svg)](https://github.com/Bitspark/go-tree/actions/workflows/main-pipeline.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/Bitspark/go-tree)](https://goreportcard.com/report/github.com/Bitspark/go-tree)
 [![Go Reference](https://pkg.go.dev/badge/github.com/Bitspark/go-tree.svg)](https://pkg.go.dev/github.com/Bitspark/go-tree)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Go Version](https://img.shields.io/github/go-mod/go-version/Bitspark/go-tree)
+
+> Library and command-line tool for parsing and formatting Go packages.
+
+[![](assets/go-tree.png)](https://bitspark.dev/go-tree)
+
+# Go-Tree
 
 [//]: # (![GitHub release &#40;latest by date&#41;]&#40;https://img.shields.io/github/v/release/Bitspark/go-tree&#41;)
 

@@ -147,5 +147,8 @@ jobs:
           go-version: ${{ inputs.go-version }}
           cache: true
       
-      - name: Build
-        run: go build -v ./... 
+      - name: Build library
+        run: go build -v ./...
+        
+      - name: Build CLI
+        run: go build -v ./cmd/gotree 
