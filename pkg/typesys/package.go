@@ -49,10 +49,12 @@ func NewPackage(mod *Module, name, importPath string) *Package {
 }
 
 // SymbolByName finds symbols by name, optionally filtering by kind.
+// If name is a prefix (not an exact match), it returns all symbols that start with that prefix.
 func (p *Package) SymbolByName(name string, kinds ...SymbolKind) []*Symbol {
 	var result []*Symbol
 	for _, sym := range p.Symbols {
-		if sym.Name == name {
+		// Check if the symbol name starts with the given name (prefix matching)
+		if sym.Name == name || (len(name) < len(sym.Name) && sym.Name[:len(name)] == name) {
 			if len(kinds) == 0 || containsKind(kinds, sym.Kind) {
 				result = append(result, sym)
 			}
@@ -74,6 +76,10 @@ func (p *Package) UpdateFiles(files []string) error {
 
 // AddSymbol adds a symbol to the package.
 func (p *Package) AddSymbol(sym *Symbol) {
+	// Set the package reference on the symbol itself
+	sym.Package = p
+
+	// Add symbol to the package's maps
 	p.Symbols[sym.ID] = sym
 	if sym.Exported {
 		p.Exported[sym.Name] = sym

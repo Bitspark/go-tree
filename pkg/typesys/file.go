@@ -63,8 +63,38 @@ func (f *File) GetPositionInfo(start, end token.Pos) *PositionInfo {
 		return nil
 	}
 
+	// Validate positions first
+	if !start.IsValid() || !end.IsValid() {
+		return nil
+	}
+
+	// Make sure start is before end
+	if start > end {
+		start, end = end, start
+	}
+
 	startPos := f.FileSet.Position(start)
 	endPos := f.FileSet.Position(end)
+
+	// Ensure positions are valid and in the correct file
+	if !startPos.IsValid() || !endPos.IsValid() {
+		return nil
+	}
+
+	// If filenames differ or aren't this file, this is suspicious but try to handle it
+	expectedName := f.Path
+	if filepath.Base(startPos.Filename) != filepath.Base(expectedName) &&
+		startPos.Filename != expectedName &&
+		filepath.Clean(startPos.Filename) != filepath.Clean(expectedName) {
+		// Log this anomaly if debug logging were available
+		// fmt.Printf("Warning: Position filename %s doesn't match file %s\n", startPos.Filename, expectedName)
+	}
+
+	// Calculate length safely
+	length := 0
+	if endPos.Offset >= startPos.Offset {
+		length = endPos.Offset - startPos.Offset
+	}
 
 	return &PositionInfo{
 		LineStart:   startPos.Line,
@@ -72,7 +102,8 @@ func (f *File) GetPositionInfo(start, end token.Pos) *PositionInfo {
 		ColumnStart: startPos.Column,
 		ColumnEnd:   endPos.Column,
 		Offset:      startPos.Offset,
-		Length:      endPos.Offset - startPos.Offset,
+		Length:      length,
+		Filename:    startPos.Filename,
 	}
 }
 
@@ -84,6 +115,7 @@ type PositionInfo struct {
 	ColumnEnd   int // Ending column (1-based)
 	Offset      int // Byte offset in file
 	Length      int // Length in bytes
+	Filename    string
 }
 
 // Helper function to check if a file is a test file

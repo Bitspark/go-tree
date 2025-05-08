@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"go/token"
 	"go/types"
-	"path/filepath"
 
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/types/typeutil"
@@ -77,7 +76,7 @@ type Transformation interface {
 func NewModule(dir string) *Module {
 	return &Module{
 		Dir:          dir,
-		Path:         filepath.Base(dir), // Will be replaced with actual module path
+		Path:         "", // Start with empty path, will be set when go.mod is loaded
 		Packages:     make(map[string]*Package),
 		FileSet:      token.NewFileSet(),
 		pkgCache:     make(map[string]*packages.Package),

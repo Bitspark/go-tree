@@ -10,19 +10,21 @@ import (
 type SymbolKind int
 
 const (
-	KindUnknown   SymbolKind = iota
-	KindPackage              // Package
-	KindFunction             // Function
-	KindMethod               // Method (function with receiver)
-	KindType                 // Named type (struct, interface, etc.)
-	KindVariable             // Variable
-	KindConstant             // Constant
-	KindField                // Struct field
-	KindParameter            // Function parameter
-	KindInterface            // Interface type
-	KindStruct               // Struct type
-	KindImport               // Import declaration
-	KindLabel                // Label
+	KindUnknown           SymbolKind = iota
+	KindPackage                      // Package
+	KindFunction                     // Function
+	KindMethod                       // Method (function with receiver)
+	KindType                         // Named type (struct, interface, etc.)
+	KindVariable                     // Variable
+	KindConstant                     // Constant
+	KindField                        // Struct field
+	KindParameter                    // Function parameter
+	KindInterface                    // Interface type
+	KindStruct                       // Struct type
+	KindImport                       // Import declaration
+	KindLabel                        // Label
+	KindEmbeddedField                // Embedded field in struct
+	KindEmbeddedInterface            // Embedded interface in interface
 )
 
 // String returns a string representation of the symbol kind.
@@ -52,6 +54,10 @@ func (k SymbolKind) String() string {
 		return "import"
 	case KindLabel:
 		return "label"
+	case KindEmbeddedField:
+		return "embedded_field"
+	case KindEmbeddedInterface:
+		return "embedded_interface"
 	default:
 		return "unknown"
 	}
