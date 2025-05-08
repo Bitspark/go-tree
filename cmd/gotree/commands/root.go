@@ -51,6 +51,7 @@ are performed on a Go module as a single entity.`,
 	cmd.AddCommand(newAnalyzeCmd())
 	cmd.AddCommand(newExecuteCmd())
 	cmd.AddCommand(newRenameCmd())
+	cmd.AddCommand(NewFindCmd())
 
 	return cmd
 }
