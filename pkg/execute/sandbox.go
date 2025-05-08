@@ -3,7 +3,6 @@ package execute
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -66,7 +65,7 @@ func (s *Sandbox) Execute(code string) (*ExecutionResult, error) {
 
 	// Create a temp file for the code
 	mainFile := filepath.Join(tempDir, "main.go")
-	if writeErr := ioutil.WriteFile(mainFile, []byte(code), 0600); writeErr != nil {
+	if writeErr := os.WriteFile(mainFile, []byte(code), 0600); writeErr != nil {
 		return nil, fmt.Errorf("failed to write temporary code file: %w", writeErr)
 	}
 
@@ -93,7 +92,7 @@ go 1.18
 	}
 
 	goModFile := filepath.Join(tempDir, "go.mod")
-	if writeErr := ioutil.WriteFile(goModFile, []byte(goModContent), 0600); writeErr != nil {
+	if writeErr := os.WriteFile(goModFile, []byte(goModContent), 0600); writeErr != nil {
 		return nil, fmt.Errorf("failed to write go.mod file: %w", writeErr)
 	}
 
@@ -205,5 +204,5 @@ func (s *Sandbox) createTempDir() (string, error) {
 		baseDir = os.TempDir()
 	}
 
-	return ioutil.TempDir(baseDir, "gosandbox-")
+	return os.MkdirTemp(baseDir, "gosandbox-")
 }
