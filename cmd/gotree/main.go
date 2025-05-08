@@ -6,10 +6,11 @@ import (
 	"os"
 
 	"bitspark.dev/go-tree/cmd/gotree/commands"
+	// Import command packages to register them
+	_ "bitspark.dev/go-tree/cmd/gotree/commands/visual"
 )
 
 func main() {
-	// Execute the root command
 	if err := commands.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

@@ -1,63 +1,45 @@
-// Package commands defines the CLI commands for the gotree tool.
+// Package commands implements the CLI commands for go-tree
 package commands
 
 import (
+	"bitspark.dev/go-tree/pkg/service"
 	"github.com/spf13/cobra"
 )
 
-// Options holds common command options
-type Options struct {
-	// Input options
-	InputDir string
-
-	// Output options
-	OutputFile string
-	OutputDir  string
-
-	// Common flags
-	Verbose bool
+var config = &service.Config{
+	ModuleDir:    ".",
+	IncludeTests: true,
+	WithDeps:     false,
+	Verbose:      false,
 }
 
-// GlobalOptions holds the global options for all commands
-var GlobalOptions Options
-
-// NewRootCommand initializes and returns the root command
-func NewRootCommand() *cobra.Command {
-	// Create a new root command
-	cmd := &cobra.Command{
-		Use:   "gotree",
-		Short: "Go-Tree analyzes, visualizes, and transforms Go modules",
-		Long: `Go-Tree is a toolkit for working with Go modules.
-It provides capabilities for analyzing code, extracting interfaces,
-generating documentation, and executing code.
-
-This tool uses a module-centered architecture where operations
-are performed on a Go module as a single entity.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// If no subcommand provided, display help
-			return cmd.Help()
-		},
-	}
-
-	// Add persistent flags for common options
-	cmd.PersistentFlags().StringVarP(&GlobalOptions.InputDir, "input", "i", ".", "Input directory containing a Go module")
-	cmd.PersistentFlags().StringVarP(&GlobalOptions.OutputFile, "output", "o", "", "Output file (defaults to stdout)")
-	cmd.PersistentFlags().StringVarP(&GlobalOptions.OutputDir, "out-dir", "d", "", "Output directory where files will be created automatically")
-	cmd.PersistentFlags().BoolVarP(&GlobalOptions.Verbose, "verbose", "v", false, "Enable verbose output")
-
-	// Add commands
-	cmd.AddCommand(newTransformCmd())
-	cmd.AddCommand(newVisualizeCmd())
-	cmd.AddCommand(newAnalyzeCmd())
-	cmd.AddCommand(newExecuteCmd())
-	cmd.AddCommand(newRenameCmd())
-	cmd.AddCommand(NewFindCmd())
-
-	return cmd
+var rootCmd = &cobra.Command{
+	Use:   "gotree",
+	Short: "Go-Tree is a tool for analyzing and manipulating Go code",
+	Long: `Go-Tree provides a comprehensive set of tools for working with Go code.
+It leverages Go's type system to provide accurate code analysis, visualization,
+and transformation.`,
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
+func init() {
+	// Global flags
+	rootCmd.PersistentFlags().StringVarP(&config.ModuleDir, "dir", "d", ".", "Directory of the Go module")
+	rootCmd.PersistentFlags().BoolVarP(&config.Verbose, "verbose", "v", false, "Enable verbose output")
+	rootCmd.PersistentFlags().BoolVar(&config.IncludeTests, "with-tests", true, "Include test files")
+	rootCmd.PersistentFlags().BoolVar(&config.WithDeps, "with-deps", false, "Include dependencies")
+}
+
+// CreateService creates a service instance from configuration
+func CreateService() (*service.Service, error) {
+	return service.NewService(config)
+}
+
+// AddCommand adds a subcommand to the root command
+func AddCommand(cmd *cobra.Command) {
+	rootCmd.AddCommand(cmd)
+}
+
+// Execute runs the root command
 func Execute() error {
-	return NewRootCommand().Execute()
+	return rootCmd.Execute()
 }
