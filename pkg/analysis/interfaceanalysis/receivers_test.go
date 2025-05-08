@@ -3,7 +3,7 @@ package interfaceanalysis
 import (
 	"testing"
 
-	"bitspark.dev/go-tree/pkg/core/model"
+	"bitspark.dev/go-tree/pkg/core/module"
 )
 
 // TestAnalyzeReceivers tests the core receiver analysis functionality
@@ -135,33 +135,40 @@ func TestGroupMethodsByBaseType(t *testing.T) {
 // TestFindCommonMethods tests finding methods with the same name across different receiver types
 func TestFindCommonMethods(t *testing.T) {
 	// Create a test package with common method names
-	pkg := &model.GoPackage{
+	userProcessFn := &module.Function{
+		Name:     "Process",
+		Receiver: &module.Receiver{Type: "*User"},
+	}
+	requestProcessFn := &module.Function{
+		Name:     "Process", // Same name as User.Process
+		Receiver: &module.Receiver{Type: "*Request"},
+	}
+	userValidateFn := &module.Function{
+		Name:     "Validate",
+		Receiver: &module.Receiver{Type: "*User"},
+	}
+	requestValidateFn := &module.Function{
+		Name:     "Validate", // Same name as User.Validate
+		Receiver: &module.Receiver{Type: "*Request"},
+	}
+	authValidateFn := &module.Function{
+		Name:     "Validate", // Same name as Request.Validate and User.Validate
+		Receiver: &module.Receiver{Type: "Auth"},
+	}
+	authUniqueFn := &module.Function{
+		Name:     "Unique",
+		Receiver: &module.Receiver{Type: "Auth"},
+	}
+
+	pkg := &module.Package{
 		Name: "testpackage",
-		Functions: []model.GoFunction{
-			{
-				Name:     "Process",
-				Receiver: &model.GoReceiver{Type: "*User"},
-			},
-			{
-				Name:     "Process", // Same name as User.Process
-				Receiver: &model.GoReceiver{Type: "*Request"},
-			},
-			{
-				Name:     "Validate",
-				Receiver: &model.GoReceiver{Type: "*User"},
-			},
-			{
-				Name:     "Validate", // Same name as User.Validate
-				Receiver: &model.GoReceiver{Type: "*Request"},
-			},
-			{
-				Name:     "Validate", // Same name as Request.Validate and User.Validate
-				Receiver: &model.GoReceiver{Type: "Auth"},
-			},
-			{
-				Name:     "Unique",
-				Receiver: &model.GoReceiver{Type: "Auth"},
-			},
+		Functions: map[string]*module.Function{
+			"User.Process":     userProcessFn,
+			"Request.Process":  requestProcessFn,
+			"User.Validate":    userValidateFn,
+			"Request.Validate": requestValidateFn,
+			"Auth.Validate":    authValidateFn,
+			"Auth.Unique":      authUniqueFn,
 		},
 	}
 
@@ -198,19 +205,22 @@ func TestFindCommonMethods(t *testing.T) {
 // TestGetReceiverMethodSignatures tests getting method signatures for specific receiver types
 func TestGetReceiverMethodSignatures(t *testing.T) {
 	// Create a test package with method signatures
-	pkg := &model.GoPackage{
+	loginFn := &module.Function{
+		Name:      "Login",
+		Signature: "(username, password string) (bool, error)",
+		Receiver:  &module.Receiver{Type: "*User"},
+	}
+	logoutFn := &module.Function{
+		Name:      "Logout",
+		Signature: "() error",
+		Receiver:  &module.Receiver{Type: "*User"},
+	}
+
+	pkg := &module.Package{
 		Name: "testpackage",
-		Functions: []model.GoFunction{
-			{
-				Name:      "Login",
-				Signature: "(username, password string) (bool, error)",
-				Receiver:  &model.GoReceiver{Type: "*User"},
-			},
-			{
-				Name:      "Logout",
-				Signature: "() error",
-				Receiver:  &model.GoReceiver{Type: "*User"},
-			},
+		Functions: map[string]*module.Function{
+			"User.Login":  loginFn,
+			"User.Logout": logoutFn,
 		},
 	}
 
@@ -239,30 +249,36 @@ func TestGetReceiverMethodSignatures(t *testing.T) {
 }
 
 // createTestPackage creates a test package with methods and receivers for testing
-func createTestPackage() *model.GoPackage {
-	return &model.GoPackage{
+func createTestPackage() *module.Package {
+	loginFn := &module.Function{
+		Name:     "Login",
+		Receiver: &module.Receiver{Type: "*User"},
+	}
+	logoutFn := &module.Function{
+		Name:     "Logout",
+		Receiver: &module.Receiver{Type: "*User"},
+	}
+	validateFn := &module.Function{
+		Name:     "Validate",
+		Receiver: &module.Receiver{Type: "Auth"},
+	}
+	processFn := &module.Function{
+		Name:     "Process",
+		Receiver: &module.Receiver{Type: "*Request"},
+	}
+	noReceiverFn := &module.Function{
+		Name:     "NoReceiver", // Function, not a method
+		Receiver: nil,
+	}
+
+	return &module.Package{
 		Name: "testpackage",
-		Functions: []model.GoFunction{
-			{
-				Name:     "Login",
-				Receiver: &model.GoReceiver{Type: "*User"},
-			},
-			{
-				Name:     "Logout",
-				Receiver: &model.GoReceiver{Type: "*User"},
-			},
-			{
-				Name:     "Validate",
-				Receiver: &model.GoReceiver{Type: "Auth"},
-			},
-			{
-				Name:     "Process",
-				Receiver: &model.GoReceiver{Type: "*Request"},
-			},
-			{
-				Name:     "NoReceiver", // Function, not a method
-				Receiver: nil,
-			},
+		Functions: map[string]*module.Function{
+			"User.Login":      loginFn,
+			"User.Logout":     logoutFn,
+			"Auth.Validate":   validateFn,
+			"Request.Process": processFn,
+			"NoReceiver":      noReceiverFn,
 		},
 	}
 }

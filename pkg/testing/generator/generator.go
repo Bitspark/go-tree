@@ -7,7 +7,7 @@ import (
 	"strings"
 	"text/template"
 
-	"bitspark.dev/go-tree/pkg/core/model"
+	"bitspark.dev/go-tree/pkg/core/module"
 )
 
 // Generator provides functionality for generating test code
@@ -30,13 +30,64 @@ func NewGenerator() *Generator {
 	return g
 }
 
+// buildFunctionSignature builds a function signature string from a Function object
+func buildFunctionSignature(fn *module.Function) string {
+	var signature strings.Builder
+
+	// Parameters
+	signature.WriteString("(")
+	for i, param := range fn.Parameters {
+		if i > 0 {
+			signature.WriteString(", ")
+		}
+		if param.Name != "" {
+			signature.WriteString(param.Name + " ")
+		}
+		if param.IsVariadic {
+			signature.WriteString("...")
+		}
+		signature.WriteString(param.Type)
+	}
+	signature.WriteString(")")
+
+	// Results
+	if len(fn.Results) > 0 {
+		if len(fn.Results) > 1 {
+			signature.WriteString(" (")
+			for i, result := range fn.Results {
+				if i > 0 {
+					signature.WriteString(", ")
+				}
+				if result.Name != "" {
+					signature.WriteString(result.Name + " ")
+				}
+				signature.WriteString(result.Type)
+			}
+			signature.WriteString(")")
+		} else {
+			// Single return value
+			if fn.Results[0].Name != "" {
+				signature.WriteString(" " + fn.Results[0].Name + " ")
+			} else {
+				signature.WriteString(" ")
+			}
+			signature.WriteString(fn.Results[0].Type)
+		}
+	}
+
+	return signature.String()
+}
+
 // GenerateTestTemplate creates a test template for a function
-func (g *Generator) GenerateTestTemplate(fn model.GoFunction, testType string) (string, error) {
+func (g *Generator) GenerateTestTemplate(fn *module.Function, testType string) (string, error) {
 	// Default to basic template if not specified or invalid
 	tmpl, exists := g.templates[testType]
 	if !exists {
 		tmpl = g.templates["basic"]
 	}
+
+	// Build function signature
+	signature := buildFunctionSignature(fn)
 
 	// Prepare template data
 	data := struct {
@@ -49,29 +100,31 @@ func (g *Generator) GenerateTestTemplate(fn model.GoFunction, testType string) (
 	}{
 		FunctionName: fn.Name,
 		TestName:     "Test" + fn.Name,
-		Signature:    fn.Signature,
+		Signature:    signature,
 	}
 
-	// Analyze the function signature for parameters and return values
-	if fn.Signature != "" {
-		// Check if function has parameters
-		data.HasParams = !strings.HasPrefix(fn.Signature, "()")
+	// Analyze the function parameters and results
+	data.HasParams = len(fn.Parameters) > 0
+	data.HasReturn = len(fn.Results) > 0
 
-		// Check if function has return values
-		data.HasReturn = strings.Contains(fn.Signature, ")")
-		if data.HasReturn {
-			parts := strings.SplitN(fn.Signature, ")", 2)
-			if len(parts) > 1 && len(parts[1]) > 0 {
-				// Has some kind of return value
-				returnPart := strings.TrimSpace(parts[1])
-				if strings.HasPrefix(returnPart, "(") {
-					// Multiple return values
-					data.ReturnType = returnPart
-				} else {
-					// Single return value
-					data.ReturnType = returnPart
+	// Format return type information for template
+	if data.HasReturn {
+		if len(fn.Results) > 1 {
+			var returnBuilder strings.Builder
+			returnBuilder.WriteString("(")
+			for i, result := range fn.Results {
+				if i > 0 {
+					returnBuilder.WriteString(", ")
 				}
+				if result.Name != "" {
+					returnBuilder.WriteString(result.Name + " ")
+				}
+				returnBuilder.WriteString(result.Type)
 			}
+			returnBuilder.WriteString(")")
+			data.ReturnType = returnBuilder.String()
+		} else {
+			data.ReturnType = fn.Results[0].Type
 		}
 	}
 
@@ -92,7 +145,7 @@ func (g *Generator) GenerateTestTemplate(fn model.GoFunction, testType string) (
 }
 
 // GenerateMissingTests generates test templates for untested functions
-func (g *Generator) GenerateMissingTests(pkg *model.GoPackage, testPkg *TestPackage, testType string) map[string]string {
+func (g *Generator) GenerateMissingTests(pkg *module.Package, testPkg *TestPackage, testType string) map[string]string {
 	templates := make(map[string]string)
 
 	// Get already tested functions

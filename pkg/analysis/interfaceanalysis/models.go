@@ -3,7 +3,7 @@
 package interfaceanalysis
 
 import (
-	"bitspark.dev/go-tree/pkg/core/model"
+	"bitspark.dev/go-tree/pkg/core/module"
 )
 
 // ReceiverGroup organizes methods by their receiver type
@@ -18,7 +18,7 @@ type ReceiverGroup struct {
 	IsPointer bool
 
 	// Methods is a list of methods that have this receiver type
-	Methods []model.GoFunction
+	Methods []*module.Function
 }
 
 // ReceiverAnalysis contains the full method receiver analysis for a package

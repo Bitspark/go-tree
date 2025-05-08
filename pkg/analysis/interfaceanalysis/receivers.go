@@ -3,7 +3,7 @@ package interfaceanalysis
 import (
 	"strings"
 
-	"bitspark.dev/go-tree/pkg/core/model"
+	"bitspark.dev/go-tree/pkg/core/module"
 )
 
 // Analyzer for method receiver analysis
@@ -15,7 +15,7 @@ func NewAnalyzer() *Analyzer {
 }
 
 // AnalyzeReceivers analyzes all method receivers in a package and groups them by receiver type
-func (a *Analyzer) AnalyzeReceivers(pkg *model.GoPackage) *ReceiverAnalysis {
+func (a *Analyzer) AnalyzeReceivers(pkg *module.Package) *ReceiverAnalysis {
 	analysis := &ReceiverAnalysis{
 		Package: pkg.Name,
 		Groups:  make(map[string]*ReceiverGroup),
@@ -40,7 +40,7 @@ func (a *Analyzer) AnalyzeReceivers(pkg *model.GoPackage) *ReceiverAnalysis {
 				ReceiverType: receiverType,
 				BaseType:     baseType,
 				IsPointer:    isPointer,
-				Methods:      []model.GoFunction{},
+				Methods:      []*module.Function{},
 			}
 			analysis.Groups[receiverType] = group
 		}
@@ -79,13 +79,13 @@ func (a *Analyzer) CreateSummary(analysis *ReceiverAnalysis) *ReceiverSummary {
 }
 
 // GroupMethodsByBaseType groups methods by their base type, regardless of whether they are pointer receivers
-func (a *Analyzer) GroupMethodsByBaseType(analysis *ReceiverAnalysis) map[string][]model.GoFunction {
-	baseTypeGroups := make(map[string][]model.GoFunction)
+func (a *Analyzer) GroupMethodsByBaseType(analysis *ReceiverAnalysis) map[string][]*module.Function {
+	baseTypeGroups := make(map[string][]*module.Function)
 
 	for _, group := range analysis.Groups {
 		baseType := group.BaseType
 		if _, exists := baseTypeGroups[baseType]; !exists {
-			baseTypeGroups[baseType] = []model.GoFunction{}
+			baseTypeGroups[baseType] = []*module.Function{}
 		}
 
 		// Add all methods from this group to the base type group

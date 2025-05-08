@@ -32,6 +32,9 @@ data/
 # Air temp files
 .air.toml.tmp
 
+# Task
+.task/
+
 # Documentation generated files
 /docs/*.txt
 

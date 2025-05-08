@@ -1,15 +1,15 @@
 // Package markdown provides functionality for generating Markdown documentation
-// from Go-Tree package model data.
+// from Go-Tree module data.
 package markdown
 
 import (
 	"bytes"
 	"fmt"
 
-	"bitspark.dev/go-tree/pkg/core/model"
+	"bitspark.dev/go-tree/pkg/core/module"
 )
 
-// MarkdownVisitor implements formatter.Visitor for Markdown output
+// MarkdownVisitor implements the visitor interface for Markdown output
 type MarkdownVisitor struct {
 	options     Options
 	buffer      bytes.Buffer
@@ -23,107 +23,145 @@ func NewMarkdownVisitor(options Options) *MarkdownVisitor {
 	}
 }
 
-// VisitPackage starts the Markdown document with the package info
-func (v *MarkdownVisitor) VisitPackage(pkg *model.GoPackage) error {
+// VisitModule processes a module
+func (v *MarkdownVisitor) VisitModule(mod *module.Module) error {
+	// Add module title
+	v.buffer.WriteString(fmt.Sprintf("# Module %s\n\n", mod.Path))
+
+	// Module doesn't have a Doc field, so we won't add module documentation
+
+	return nil
+}
+
+// VisitPackage processes a package
+func (v *MarkdownVisitor) VisitPackage(pkg *module.Package) error {
 	v.packageName = pkg.Name
 
 	// Add package title
-	v.buffer.WriteString("# Package " + pkg.Name + "\n\n")
+	v.buffer.WriteString("## Package " + pkg.Name + "\n\n")
 
 	// Add package documentation if available
-	if pkg.PackageDoc != "" {
-		v.buffer.WriteString(pkg.PackageDoc + "\n\n")
+	if pkg.Documentation != "" {
+		v.buffer.WriteString(pkg.Documentation + "\n\n")
 	}
 
 	return nil
 }
 
+// VisitFile processes a file
+func (v *MarkdownVisitor) VisitFile(file *module.File) error {
+	// Files are not typically represented in Markdown documentation
+	// at the file level, so we'll just ignore this visit.
+	return nil
+}
+
 // VisitType processes a type declaration
-func (v *MarkdownVisitor) VisitType(typ model.GoType) error {
+func (v *MarkdownVisitor) VisitType(typ *module.Type) error {
 	// Add type header
-	v.buffer.WriteString(fmt.Sprintf("## Type: %s (%s)\n\n", typ.Name, typ.Kind))
+	v.buffer.WriteString(fmt.Sprintf("### Type: %s (%s)\n\n", typ.Name, typ.Kind))
 
 	// Add type documentation if available
 	if typ.Doc != "" {
 		v.buffer.WriteString(typ.Doc + "\n\n")
 	}
 
-	// Add code block with the type definition
-	if v.options.IncludeCodeBlocks && typ.Code != "" {
+	// Type doesn't have a Code field, so we'll just include a placeholder for the code block
+	if v.options.IncludeCodeBlocks {
 		v.buffer.WriteString("```go\n")
-		v.buffer.WriteString(typ.Code + "\n")
+		// Show type definition based on available fields
+		v.buffer.WriteString(fmt.Sprintf("type %s %s\n", typ.Name, typ.Kind))
 		v.buffer.WriteString("```\n\n")
 	}
 
-	// Add struct fields table if applicable
-	if typ.Kind == "struct" && len(typ.Fields) > 0 {
-		v.buffer.WriteString("### Fields\n\n")
-		v.buffer.WriteString("| Name | Type | Tag | Comment |\n")
-		v.buffer.WriteString("|------|------|-----|--------|\n")
-
-		for _, field := range typ.Fields {
-			name := field.Name
-			if name == "" {
-				name = "*embedded*"
-			}
-
-			v.buffer.WriteString(fmt.Sprintf("| %s | %s | `%s` | %s |\n",
-				name, field.Type, field.Tag, field.Comment))
-		}
-		v.buffer.WriteString("\n")
-	}
-
-	// Add interface methods table if applicable
-	if typ.Kind == "interface" && len(typ.InterfaceMethods) > 0 {
-		v.buffer.WriteString("### Methods\n\n")
-		v.buffer.WriteString("| Name | Signature | Comment |\n")
-		v.buffer.WriteString("|------|-----------|--------|\n")
-
-		for _, method := range typ.InterfaceMethods {
-			sig := method.Signature
-			if sig == "" {
-				sig = "*embedded interface*"
-			}
-
-			v.buffer.WriteString(fmt.Sprintf("| %s | %s | %s |\n",
-				method.Name, sig, method.Comment))
-		}
-		v.buffer.WriteString("\n")
-	}
+	// For structs, fields will be processed by VisitField
 
 	return nil
 }
 
 // VisitFunction processes a function declaration
-func (v *MarkdownVisitor) VisitFunction(fn model.GoFunction) error {
-	// Format function header
-	var header string
-	if fn.Receiver != nil {
-		receiverStr := fn.Receiver.Type
-		if fn.Receiver.Name != "" {
-			receiverStr = fn.Receiver.Name + " " + receiverStr
-		}
-		header = fmt.Sprintf("## Method: (%s) %s", receiverStr, fn.Name)
-	} else {
-		header = "## Function: " + fn.Name
-	}
-
-	v.buffer.WriteString(header + "\n\n")
+func (v *MarkdownVisitor) VisitFunction(fn *module.Function) error {
+	// Add function header
+	v.buffer.WriteString(fmt.Sprintf("### Function: %s\n\n", fn.Name))
 
 	// Add function documentation if available
 	if fn.Doc != "" {
 		v.buffer.WriteString(fn.Doc + "\n\n")
 	}
 
-	// Add signature
+	// Add signature if available
 	if fn.Signature != "" {
 		v.buffer.WriteString(fmt.Sprintf("**Signature:** `%s`\n\n", fn.Signature))
 	}
 
-	// Add code block with the function definition
-	if v.options.IncludeCodeBlocks && fn.Code != "" {
+	// Function doesn't have a Code field, so we'll just include the signature in the code block
+	if v.options.IncludeCodeBlocks && fn.Signature != "" {
 		v.buffer.WriteString("```go\n")
-		v.buffer.WriteString(fn.Code + "\n")
+		v.buffer.WriteString(fmt.Sprintf("func %s%s\n", fn.Name, fn.Signature))
+		v.buffer.WriteString("```\n\n")
+	}
+
+	return nil
+}
+
+// VisitMethod processes a method declaration
+func (v *MarkdownVisitor) VisitMethod(method *module.Method) error {
+	// Method doesn't have a Function field, it's a standalone entity
+	// Format method header with receiver type from the method's parent type
+	receiverStr := ""
+	if method.Parent != nil {
+		receiverStr = method.Parent.Name
+		v.buffer.WriteString(fmt.Sprintf("### Method: (%s) %s\n\n", receiverStr, method.Name))
+	} else {
+		v.buffer.WriteString(fmt.Sprintf("### Method: %s\n\n", method.Name))
+	}
+
+	// Add method documentation if available
+	if method.Doc != "" {
+		v.buffer.WriteString(method.Doc + "\n\n")
+	}
+
+	// Add signature if available
+	if method.Signature != "" {
+		v.buffer.WriteString(fmt.Sprintf("**Signature:** `%s`\n\n", method.Signature))
+	}
+
+	// Method doesn't have a Code field, so we'll just include the signature in the code block
+	if v.options.IncludeCodeBlocks && method.Signature != "" {
+		v.buffer.WriteString("```go\n")
+		if receiverStr != "" {
+			v.buffer.WriteString(fmt.Sprintf("func (%s) %s%s\n", receiverStr, method.Name, method.Signature))
+		} else {
+			v.buffer.WriteString(fmt.Sprintf("func %s%s\n", method.Name, method.Signature))
+		}
+		v.buffer.WriteString("```\n\n")
+	}
+
+	return nil
+}
+
+// VisitField processes a struct field
+func (v *MarkdownVisitor) VisitField(field *module.Field) error {
+	// Fields are usually processed as part of the struct type
+	// We could accumulate them here and output them when we've seen all fields
+	// For now, we'll just ignore individual fields
+	return nil
+}
+
+// VisitVariable processes a variable declaration
+func (v *MarkdownVisitor) VisitVariable(variable *module.Variable) error {
+	// Add variable information
+	v.buffer.WriteString(fmt.Sprintf("### Variable: %s\n\n", variable.Name))
+
+	if variable.Doc != "" {
+		v.buffer.WriteString(variable.Doc + "\n\n")
+	}
+
+	v.buffer.WriteString(fmt.Sprintf("**Type:** %s\n\n", variable.Type))
+
+	// Variable doesn't have a Code field, so we'll just show a simplified declaration
+	if v.options.IncludeCodeBlocks {
+		v.buffer.WriteString("```go\n")
+		v.buffer.WriteString(fmt.Sprintf("var %s %s\n", variable.Name, variable.Type))
 		v.buffer.WriteString("```\n\n")
 	}
 
@@ -131,20 +169,30 @@ func (v *MarkdownVisitor) VisitFunction(fn model.GoFunction) error {
 }
 
 // VisitConstant processes a constant declaration
-func (v *MarkdownVisitor) VisitConstant(c model.GoConstant) error {
-	// We'll collect constants and output them as a group later
-	return nil
-}
+func (v *MarkdownVisitor) VisitConstant(constant *module.Constant) error {
+	// Add constant information
+	v.buffer.WriteString(fmt.Sprintf("### Constant: %s\n\n", constant.Name))
 
-// VisitVariable processes a variable declaration
-func (v *MarkdownVisitor) VisitVariable(vr model.GoVariable) error {
-	// We'll collect variables and output them as a group later
+	if constant.Doc != "" {
+		v.buffer.WriteString(constant.Doc + "\n\n")
+	}
+
+	v.buffer.WriteString(fmt.Sprintf("**Type:** %s\n\n", constant.Type))
+	v.buffer.WriteString(fmt.Sprintf("**Value:** %s\n\n", constant.Value))
+
+	// Constant doesn't have a Code field, so we'll just show a simplified declaration
+	if v.options.IncludeCodeBlocks {
+		v.buffer.WriteString("```go\n")
+		v.buffer.WriteString(fmt.Sprintf("const %s %s = %s\n", constant.Name, constant.Type, constant.Value))
+		v.buffer.WriteString("```\n\n")
+	}
+
 	return nil
 }
 
 // VisitImport processes an import declaration
-func (v *MarkdownVisitor) VisitImport(imp model.GoImport) error {
-	// We'll collect imports and output them as a group later
+func (v *MarkdownVisitor) VisitImport(imp *module.Import) error {
+	// Imports are usually not documented individually in Markdown
 	return nil
 }
 

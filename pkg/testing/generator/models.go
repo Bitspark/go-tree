@@ -3,7 +3,7 @@
 package generator
 
 import (
-	"bitspark.dev/go-tree/pkg/core/model"
+	"bitspark.dev/go-tree/pkg/core/module"
 )
 
 // TestFunction represents a test function with metadata
@@ -24,7 +24,7 @@ type TestFunction struct {
 	HasBenchmark bool
 
 	// Source contains the full function definition
-	Source model.GoFunction
+	Source module.Function
 }
 
 // TestSummary provides summary information about tests in a package

@@ -3,7 +3,7 @@ package generator
 import (
 	"testing"
 
-	"bitspark.dev/go-tree/pkg/core/model"
+	"bitspark.dev/go-tree/pkg/core/module"
 )
 
 // TestAnalyzeTestFunction tests the analysis of individual test functions
@@ -11,15 +11,13 @@ func TestAnalyzeTestFunction(t *testing.T) {
 	analyzer := NewAnalyzer()
 
 	// Test regular test function
-	regularTest := model.GoFunction{
-		Name: "TestCreateUser",
-		Body: `
-			user := CreateUser("test", "test@example.com")
-			if user == nil {
-				t.Error("Expected user, got nil")
-			}
-		`,
-	}
+	regularTest := createTestFunction("TestCreateUser", "")
+	regularTest.Body = `
+		user := CreateUser("test", "test@example.com")
+		if user == nil {
+			t.Error("Expected user, got nil")
+		}
+	`
 
 	result := analyzer.analyzeTestFunction(regularTest)
 
@@ -40,28 +38,26 @@ func TestAnalyzeTestFunction(t *testing.T) {
 	}
 
 	// Test table-driven test function
-	tableTest := model.GoFunction{
-		Name: "TestValidateInput",
-		Body: `
-			testCases := []struct {
-				name     string
-				input    string
-				expected bool
-			}{
-				{"valid input", "valid", true},
-				{"invalid input", "", false},
-			}
-			
-			for _, tc := range testCases {
-				t.Run(tc.name, func(t *testing.T) {
-					result := ValidateInput(tc.input)
-					if result != tc.expected {
-						t.Errorf("Expected %v, got %v", tc.expected, result)
-					}
-				})
-			}
-		`,
-	}
+	tableTest := createTestFunction("TestValidateInput", "")
+	tableTest.Body = `
+		testCases := []struct {
+			name     string
+			input    string
+			expected bool
+		}{
+			{"valid input", "valid", true},
+			{"invalid input", "", false},
+		}
+		
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				result := ValidateInput(tc.input)
+				if result != tc.expected {
+					t.Errorf("Expected %v, got %v", tc.expected, result)
+				}
+			})
+		}
+	`
 
 	tableResult := analyzer.analyzeTestFunction(tableTest)
 
@@ -70,16 +66,14 @@ func TestAnalyzeTestFunction(t *testing.T) {
 	}
 
 	// Test parallel test function
-	parallelTest := model.GoFunction{
-		Name: "TestProcessData",
-		Body: `
-			t.Parallel()
-			result := ProcessData("test")
-			if result != "processed" {
-				t.Errorf("Expected 'processed', got '%s'", result)
-			}
-		`,
-	}
+	parallelTest := createTestFunction("TestProcessData", "")
+	parallelTest.Body = `
+		t.Parallel()
+		result := ProcessData("test")
+		if result != "processed" {
+			t.Errorf("Expected 'processed', got '%s'", result)
+		}
+	`
 
 	parallelResult := analyzer.analyzeTestFunction(parallelTest)
 
@@ -93,21 +87,32 @@ func TestMapTestsToFunctions(t *testing.T) {
 	analyzer := NewAnalyzer()
 
 	// Create some test functions and a package
+	createUserFn := createTestFunction("TestCreateUser", "")
+	validateInputFn := createTestFunction("TestValidateInput", "")
+	processDataSuccessFn := createTestFunction("TestProcessDataSuccess", "")
+	getUserByIDFn := createTestFunction("TestGetUserByID", "")
+
 	tests := []TestFunction{
-		{Name: "TestCreateUser", TargetName: "CreateUser"},
-		{Name: "TestValidateInput", TargetName: "ValidateInput"},
-		{Name: "TestProcessDataSuccess", TargetName: "ProcessDataSuccess"},
-		{Name: "TestGetUserByID", TargetName: "GetUserByID"},
+		{Name: "TestCreateUser", TargetName: "CreateUser", Source: *createUserFn},
+		{Name: "TestValidateInput", TargetName: "ValidateInput", Source: *validateInputFn},
+		{Name: "TestProcessDataSuccess", TargetName: "ProcessDataSuccess", Source: *processDataSuccessFn},
+		{Name: "TestGetUserByID", TargetName: "GetUserByID", Source: *getUserByIDFn},
 	}
 
-	pkg := &model.GoPackage{
-		Functions: []model.GoFunction{
-			{Name: "CreateUser"},
-			{Name: "validateInput"}, // lowercase first letter
-			{Name: "processData"},   // partial match
-			{Name: "UnrelatedFunc"},
-		},
+	pkg := &module.Package{
+		Functions: make(map[string]*module.Function),
 	}
+
+	// Add functions to package
+	createUser := createTestFunction("CreateUser", "")
+	validateInput := createTestFunction("validateInput", "")
+	processData := createTestFunction("processData", "")
+	unrelatedFunc := createTestFunction("UnrelatedFunc", "")
+
+	pkg.Functions[createUser.Name] = createUser
+	pkg.Functions[validateInput.Name] = validateInput
+	pkg.Functions[processData.Name] = processData
+	pkg.Functions[unrelatedFunc.Name] = unrelatedFunc
 
 	// Map tests to functions
 	testMap := analyzer.mapTestsToFunctions(tests, pkg)
@@ -137,11 +142,20 @@ func TestMapTestsToFunctions(t *testing.T) {
 func TestCreateTestSummary(t *testing.T) {
 	analyzer := NewAnalyzer()
 
+	// Create functions for Source field
+	func1TestFn := createTestFunction("TestFunc1", "")
+	func1TestFn.Body = "testCases := []struct{}" // Make it a table test
+
+	func2TestFn := createTestFunction("TestFunc2", "")
+	func2TestFn.Body = "t.Parallel()" // Make it a parallel test
+
+	func3TestFn := createTestFunction("TestFunc3", "")
+
 	// Create test functions and test map
 	tests := []TestFunction{
-		{Name: "TestFunc1", TargetName: "Func1", IsTableTest: true},
-		{Name: "TestFunc2", TargetName: "Func2", IsParallel: true},
-		{Name: "TestFunc3", TargetName: "Func3", HasBenchmark: true},
+		{Name: "TestFunc1", TargetName: "Func1", IsTableTest: true, Source: *func1TestFn},
+		{Name: "TestFunc2", TargetName: "Func2", IsParallel: true, Source: *func2TestFn},
+		{Name: "TestFunc3", TargetName: "Func3", HasBenchmark: true, Source: *func3TestFn},
 	}
 
 	benchmarks := []string{"BenchmarkFunc3", "BenchmarkOther"}
@@ -155,16 +169,24 @@ func TestCreateTestSummary(t *testing.T) {
 		Unmapped: []TestFunction{},
 	}
 
-	pkg := &model.GoPackage{
-		Functions: []model.GoFunction{
-			{Name: "Func1"},
-			{Name: "Func2"},
-			{Name: "Func3"},
-			{Name: "Func4"},          // No test for this function
-			{Name: "TestFunc1"},      // Test function itself
-			{Name: "BenchmarkFunc3"}, // Benchmark function
-		},
+	pkg := &module.Package{
+		Functions: make(map[string]*module.Function),
 	}
+
+	// Add functions to package
+	func1 := createTestFunction("Func1", "")
+	func2 := createTestFunction("Func2", "")
+	func3 := createTestFunction("Func3", "")
+	func4 := createTestFunction("Func4", "")
+	testFunc1 := createTestFunction("TestFunc1", "")
+	benchmarkFunc3 := createTestFunction("BenchmarkFunc3", "")
+
+	pkg.Functions[func1.Name] = func1
+	pkg.Functions[func2.Name] = func2
+	pkg.Functions[func3.Name] = func3
+	pkg.Functions[func4.Name] = func4
+	pkg.Functions[testFunc1.Name] = testFunc1
+	pkg.Functions[benchmarkFunc3.Name] = benchmarkFunc3
 
 	// Create summary
 	summary := analyzer.createTestSummary(tests, benchmarks, pkg, testMap)
@@ -208,25 +230,38 @@ func TestCreateTestSummary(t *testing.T) {
 func TestIdentifyTestPatterns(t *testing.T) {
 	analyzer := NewAnalyzer()
 
+	// Create a module.Function for the Source field
+	tableTestFn := createTestFunction("TestFunc1", "")
+	tableTestFn.Body = "testCases := []struct{}"
+
+	parallelTestFn := createTestFunction("TestFunc2", "")
+	parallelTestFn.Body = "t.Parallel()"
+
+	bddTestFn := createTestFunction("TestFunc4", "")
+	bddTestFn.Body = "// Given a valid user\n// When we call the function\n// Then it should return true"
+
+	emptyFn := createTestFunction("TestFunc3", "")
+
 	// Create test functions with different patterns
 	tests := []TestFunction{
 		{
 			Name:        "TestFunc1",
 			IsTableTest: true,
-			Source:      model.GoFunction{Body: "testCases := []struct{}"},
+			Source:      *tableTestFn,
 		},
 		{
 			Name:       "TestFunc2",
 			IsParallel: true,
-			Source:     model.GoFunction{Body: "t.Parallel()"},
+			Source:     *parallelTestFn,
 		},
 		{
 			Name:         "TestFunc3",
 			HasBenchmark: true,
+			Source:       *emptyFn,
 		},
 		{
 			Name:   "TestFunc4",
-			Source: model.GoFunction{Body: "// Given a valid user\n// When we call the function\n// Then it should return true"},
+			Source: *bddTestFn,
 		},
 	}
 
@@ -268,27 +303,31 @@ func TestAnalyzePackage(t *testing.T) {
 	analyzer := NewAnalyzer()
 
 	// Create a test package
-	pkg := &model.GoPackage{
-		Name: "testpackage",
-		Functions: []model.GoFunction{
-			{Name: "CreateUser", Signature: "(name string, email string) *User"},
-			{Name: "ValidateEmail", Signature: "(email string) bool"},
-			{Name: "ProcessData", Signature: "(data []byte) error"},
-
-			// Test functions
-			{
-				Name: "TestCreateUser",
-				Body: "user := CreateUser(\"test\", \"test@example.com\")\nif user == nil {\n\tt.Error(\"Expected user, got nil\")\n}",
-			},
-			{
-				Name: "TestValidateEmail",
-				Body: "testCases := []struct{\n\temail string\n\tvalid bool\n}{\n\t{\"test@example.com\", true},\n\t{\"\", false},\n}\nfor _, tc := range testCases {\n\tresult := ValidateEmail(tc.email)\n\tif result != tc.valid {\n\t\tt.Errorf(\"Expected %v, got %v\", tc.valid, result)\n\t}\n}",
-			},
-
-			// Benchmark
-			{Name: "BenchmarkValidateEmail", Body: "for i := 0; i < b.N; i++ {\n\tValidateEmail(\"test@example.com\")\n}"},
-		},
+	pkg := &module.Package{
+		Name:      "testpackage",
+		Functions: make(map[string]*module.Function),
 	}
+
+	// Add functions to package
+	createUser := createTestFunction("CreateUser", "(name string, email string) *User")
+	validateEmail := createTestFunction("ValidateEmail", "(email string) bool")
+	processData := createTestFunction("ProcessData", "(data []byte) error")
+
+	testCreateUser := createTestFunction("TestCreateUser", "")
+	testCreateUser.Body = "user := CreateUser(\"test\", \"test@example.com\")\nif user == nil {\n\tt.Error(\"Expected user, got nil\")\n}"
+
+	testValidateEmail := createTestFunction("TestValidateEmail", "")
+	testValidateEmail.Body = "testCases := []struct{\n\temail string\n\tvalid bool\n}{\n\t{\"test@example.com\", true},\n\t{\"\", false},\n}\nfor _, tc := range testCases {\n\tresult := ValidateEmail(tc.email)\n\tif result != tc.valid {\n\t\tt.Errorf(\"Expected %v, got %v\", tc.valid, result)\n\t}\n}"
+
+	benchmarkValidateEmail := createTestFunction("BenchmarkValidateEmail", "")
+	benchmarkValidateEmail.Body = "for i := 0; i < b.N; i++ {\n\tValidateEmail(\"test@example.com\")\n}"
+
+	pkg.Functions[createUser.Name] = createUser
+	pkg.Functions[validateEmail.Name] = validateEmail
+	pkg.Functions[processData.Name] = processData
+	pkg.Functions[testCreateUser.Name] = testCreateUser
+	pkg.Functions[testValidateEmail.Name] = testValidateEmail
+	pkg.Functions[benchmarkValidateEmail.Name] = benchmarkValidateEmail
 
 	// Analyze the package
 	testPkg := analyzer.AnalyzePackage(pkg, true)

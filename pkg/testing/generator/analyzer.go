@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"bitspark.dev/go-tree/pkg/core/model"
+	"bitspark.dev/go-tree/pkg/core/module"
 )
 
 var (
@@ -24,7 +24,7 @@ func NewAnalyzer() *Analyzer {
 }
 
 // AnalyzePackage analyzes a package and extracts test information
-func (a *Analyzer) AnalyzePackage(pkg *model.GoPackage, includeTestFiles bool) *TestPackage {
+func (a *Analyzer) AnalyzePackage(pkg *module.Package, includeTestFiles bool) *TestPackage {
 	testPkg := &TestPackage{
 		PackageName:   pkg.Name,
 		TestFunctions: []TestFunction{},
@@ -88,10 +88,10 @@ func (a *Analyzer) AnalyzePackage(pkg *model.GoPackage, includeTestFiles bool) *
 }
 
 // analyzeTestFunction analyzes a single test function
-func (a *Analyzer) analyzeTestFunction(fn model.GoFunction) TestFunction {
+func (a *Analyzer) analyzeTestFunction(fn *module.Function) TestFunction {
 	test := TestFunction{
 		Name:   fn.Name,
-		Source: fn,
+		Source: *fn,
 	}
 
 	// Extract the target function name from the test name
@@ -113,7 +113,7 @@ func (a *Analyzer) analyzeTestFunction(fn model.GoFunction) TestFunction {
 }
 
 // mapTestsToFunctions maps test functions to their target functions
-func (a *Analyzer) mapTestsToFunctions(tests []TestFunction, pkg *model.GoPackage) TestMap {
+func (a *Analyzer) mapTestsToFunctions(tests []TestFunction, pkg *module.Package) TestMap {
 	result := TestMap{
 		FunctionToTests: make(map[string][]TestFunction),
 		Unmapped:        []TestFunction{},
@@ -121,8 +121,8 @@ func (a *Analyzer) mapTestsToFunctions(tests []TestFunction, pkg *model.GoPackag
 
 	// Get all function names
 	functionNames := make(map[string]bool)
-	for _, fn := range pkg.Functions {
-		functionNames[fn.Name] = true
+	for fnName := range pkg.Functions {
+		functionNames[fnName] = true
 	}
 
 	// For each test, try to find a matching function
@@ -169,7 +169,7 @@ func (a *Analyzer) mapTestsToFunctions(tests []TestFunction, pkg *model.GoPackag
 }
 
 // createTestSummary calculates test coverage and other statistics
-func (a *Analyzer) createTestSummary(tests []TestFunction, benchmarks []string, pkg *model.GoPackage, testMap TestMap) TestSummary {
+func (a *Analyzer) createTestSummary(tests []TestFunction, benchmarks []string, pkg *module.Package, testMap TestMap) TestSummary {
 	summary := TestSummary{
 		TotalTests:      len(tests),
 		TotalBenchmarks: len(benchmarks),
@@ -193,8 +193,8 @@ func (a *Analyzer) createTestSummary(tests []TestFunction, benchmarks []string, 
 
 	// Count testable functions (excluding tests and benchmarks)
 	var testableCount int
-	for _, fn := range pkg.Functions {
-		if !testPrefixRegexp.MatchString(fn.Name) && !benchmarkTestRegexp.MatchString(fn.Name) {
+	for fnName, fn := range pkg.Functions {
+		if !testPrefixRegexp.MatchString(fnName) && !benchmarkTestRegexp.MatchString(fnName) && !fn.IsMethod {
 			testableCount++
 		}
 	}
