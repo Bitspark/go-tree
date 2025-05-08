@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +15,49 @@ import (
 
 	"bitspark.dev/go-tree/pkg/core/module"
 )
+
+// validateFilePath ensures the file path is within the expected directory
+func validateFilePath(path, baseDir string) (string, error) {
+	// Convert to absolute paths for comparison
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	absBaseDir, err := filepath.Abs(baseDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute base path: %w", err)
+	}
+
+	// Check if the file path is within the base directory
+	if !strings.HasPrefix(absPath, absBaseDir) {
+		return "", fmt.Errorf("file path %s is outside of base directory %s", path, baseDir)
+	}
+
+	// Verify file exists
+	if _, err := os.Stat(absPath); err != nil {
+		return "", fmt.Errorf("invalid file path: %w", err)
+	}
+
+	return absPath, nil
+}
+
+// safeReadFile reads a file with path validation
+func safeReadFile(filePath, baseDir string) ([]byte, error) {
+	validPath, err := validateFilePath(filePath, baseDir)
+	if err != nil {
+		return nil, err
+	}
+
+	// Use filepath.Clean to normalize the path before reading
+	cleanPath := filepath.Clean(validPath)
+	content, err := os.ReadFile(cleanPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	return content, nil
+}
 
 // GoModuleLoader implements ModuleLoader for Go modules
 type GoModuleLoader struct {
@@ -43,7 +85,7 @@ func (l *GoModuleLoader) LoadWithOptions(dir string, options LoadOptions) (*modu
 	}
 
 	// Parse go.mod file
-	modContent, err := ioutil.ReadFile(goModPath)
+	modContent, err := safeReadFile(goModPath, dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read go.mod: %w", err)
 	}
@@ -77,6 +119,12 @@ func (l *GoModuleLoader) LoadWithOptions(dir string, options LoadOptions) (*modu
 	for _, pkg := range pkgs {
 		modPkg := module.NewPackage(pkg.Name, pkg.PkgPath, pkg.Dir)
 
+		// Set package position if available
+		if len(pkg.Syntax) > 0 {
+			modPkg.SetPosition(pkg.Syntax[0].Package, pkg.Syntax[len(pkg.Syntax)-1].End())
+		}
+
+		// First pass: Create files and load all basic declarations
 		// Process files in the package
 		for _, file := range pkg.Syntax {
 			filePath := l.fset.Position(file.Pos()).Filename
@@ -91,7 +139,25 @@ func (l *GoModuleLoader) LoadWithOptions(dir string, options LoadOptions) (*modu
 			// Create file
 			modFile := module.NewFile(filePath, fileName, isTest)
 
-			// Add imports
+			// Use the shared FileSet for all files
+			modFile.FileSet = l.fset
+
+			// Get the source code
+			fileContent, err := safeReadFile(filePath, pkg.Dir)
+			if err == nil {
+				modFile.SourceCode = string(fileContent)
+
+				// Create a TokenFile for this source
+				// Important: Use the same FileSet that was used to parse the AST
+				// and pass position 1 (not base position) for correct position mapping
+				modFile.TokenFile = l.fset.AddFile(filePath, -1, len(fileContent))
+
+				// Debug print
+				fmt.Printf("DEBUG: Created TokenFile for %s: Base=%v, Size=%v\n",
+					fileName, modFile.TokenFile.Base(), modFile.TokenFile.Size())
+			}
+
+			// Add imports with position information
 			for _, imp := range file.Imports {
 				path := strings.Trim(imp.Path.Value, "\"")
 				name := ""
@@ -102,10 +168,13 @@ func (l *GoModuleLoader) LoadWithOptions(dir string, options LoadOptions) (*modu
 					isBlank = name == "_"
 				}
 
-				importObj := &module.Import{
-					Path:    path,
-					Name:    name,
-					IsBlank: isBlank,
+				importObj := module.NewImport(path, name, isBlank)
+				importObj.File = modFile
+				importObj.SetPosition(imp.Pos(), imp.End())
+
+				// Set documentation if available
+				if options.LoadDocs && imp.Doc != nil {
+					importObj.Doc = imp.Doc.Text()
 				}
 
 				modFile.AddImport(importObj)
@@ -116,7 +185,7 @@ func (l *GoModuleLoader) LoadWithOptions(dir string, options LoadOptions) (*modu
 				l.processDeclaration(decl, modFile, modPkg, options)
 			}
 
-			// Set source code if requested
+			// Set AST if requested
 			if options.IncludeAST {
 				modFile.AST = file
 			}
@@ -124,6 +193,10 @@ func (l *GoModuleLoader) LoadWithOptions(dir string, options LoadOptions) (*modu
 			// Add file to package
 			modPkg.AddFile(modFile)
 		}
+
+		// Second pass: Associate methods with their receiver types
+		// This needs to be done after all types are loaded
+		l.associateMethodsWithTypes(modPkg)
 
 		// Add package to module
 		mod.AddPackage(modPkg)
@@ -193,6 +266,9 @@ func (l *GoModuleLoader) processFunction(funcDecl *ast.FuncDecl, file *module.Fi
 	// Create function
 	fn := module.NewFunction(name, isExported, isTest)
 
+	// Set position information
+	fn.SetPosition(funcDecl.Pos(), funcDecl.End())
+
 	// Set signature
 	// In a real implementation, we would extract the full signature
 	// This is simplified for this example
@@ -222,6 +298,11 @@ func (l *GoModuleLoader) processFunction(funcDecl *ast.FuncDecl, file *module.Fi
 
 		// Set receiver
 		fn.SetReceiver(recvName, recvType, isPointer)
+
+		// Set receiver position
+		if fn.Receiver != nil {
+			fn.Receiver.SetPosition(recvField.Pos(), recvField.End())
+		}
 	}
 
 	// Set documentation if requested
@@ -265,6 +346,9 @@ func (l *GoModuleLoader) processGenDecl(genDecl *ast.GenDecl, file *module.File,
 			// Create type
 			typ := module.NewType(name, kind, isExported)
 
+			// Set position information
+			typ.SetPosition(typeSpec.Pos(), typeSpec.End())
+
 			// Set documentation if requested
 			if options.LoadDocs {
 				if genDecl.Doc != nil {
@@ -296,7 +380,9 @@ func (l *GoModuleLoader) processGenDecl(genDecl *ast.GenDecl, file *module.File,
 						doc = field.Doc.Text()
 					}
 
-					typ.AddField(fieldName, fieldType, tag, isEmbedded, doc)
+					// Add field with position information
+					f := typ.AddField(fieldName, fieldType, tag, isEmbedded, doc)
+					f.SetPosition(field.Pos(), field.End())
 				}
 			} else if interfaceType, ok := typeSpec.Type.(*ast.InterfaceType); ok && interfaceType.Methods != nil {
 				for _, method := range interfaceType.Methods.List {
@@ -317,7 +403,9 @@ func (l *GoModuleLoader) processGenDecl(genDecl *ast.GenDecl, file *module.File,
 						doc = method.Doc.Text()
 					}
 
-					typ.AddInterfaceMethod(methodName, signature, isEmbedded, doc)
+					// Add interface method with position information
+					m := typ.AddInterfaceMethod(methodName, signature, isEmbedded, doc)
+					m.SetPosition(method.Pos(), method.End())
 				}
 			}
 
@@ -354,6 +442,9 @@ func (l *GoModuleLoader) processGenDecl(genDecl *ast.GenDecl, file *module.File,
 				variable := module.NewVariable(name, typeName, value, isExported)
 				variable.Doc = doc
 
+				// Set position information
+				variable.SetPosition(ident.Pos(), ident.End())
+
 				file.AddVariable(variable)
 				pkg.AddVariable(variable)
 			}
@@ -387,9 +478,57 @@ func (l *GoModuleLoader) processGenDecl(genDecl *ast.GenDecl, file *module.File,
 				constant := module.NewConstant(name, typeName, value, isExported)
 				constant.Doc = doc
 
+				// Set position information
+				constant.SetPosition(ident.Pos(), ident.End())
+
 				file.AddConstant(constant)
 				pkg.AddConstant(constant)
 			}
+		}
+	}
+}
+
+// associateMethodsWithTypes associates methods with their receiver types
+func (l *GoModuleLoader) associateMethodsWithTypes(pkg *module.Package) {
+	// Find all methods in the package
+	var methods []*module.Function
+	for _, fn := range pkg.Functions {
+		if fn.IsMethod && fn.Receiver != nil {
+			methods = append(methods, fn)
+		}
+	}
+
+	// Associate methods with their receiver types
+	for _, method := range methods {
+		// Get the receiver type
+		receiverType := method.Receiver.Type
+
+		// Check if the type is a pointer
+		if method.Receiver.IsPointer {
+			// Remove the * from the type name for lookup
+			receiverType = strings.TrimPrefix(receiverType, "*")
+		}
+
+		// Find the type in the package
+		typ, ok := pkg.Types[receiverType]
+		if ok {
+			// Add the method to the type
+			// Create a method object
+			methodObj := &module.Method{
+				Name:       method.Name,
+				Signature:  method.Signature,
+				IsEmbedded: false,
+				Doc:        method.Doc,
+				Parent:     typ,
+				Pos:        method.Pos,
+				End:        method.End,
+			}
+
+			// Add to the type's methods
+			typ.Methods = append(typ.Methods, methodObj)
+
+			// Debug
+			// fmt.Printf("DEBUG: Associated method %s with type %s\n", method.Name, typ.Name)
 		}
 	}
 }

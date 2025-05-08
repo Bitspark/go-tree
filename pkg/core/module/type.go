@@ -1,6 +1,10 @@
 // Package module defines type-related structures for the module data model.
 package module
 
+import (
+	"go/token"
+)
+
 // Type represents a Go type definition
 type Type struct {
 	// Type identity
@@ -18,6 +22,10 @@ type Type struct {
 	Methods    []*Method // Methods for this type
 	Interfaces []*Method // Methods for interfaces
 
+	// Position information
+	Pos token.Pos // Start position in source
+	End token.Pos // End position in source
+
 	// Documentation
 	Doc string // Documentation comment
 }
@@ -30,6 +38,10 @@ type Field struct {
 	IsEmbedded bool   // Whether this is an embedded field
 	Doc        string // Documentation comment
 	Parent     *Type  // Parent type
+
+	// Position information
+	Pos token.Pos // Start position in source
+	End token.Pos // End position in source
 }
 
 // Method represents a method in an interface or a struct type
@@ -39,6 +51,10 @@ type Method struct {
 	IsEmbedded bool   // Whether this is an embedded interface
 	Doc        string // Documentation comment
 	Parent     *Type  // Parent type
+
+	// Position information
+	Pos token.Pos // Start position in source
+	End token.Pos // End position in source
 }
 
 // NewType creates a new type
@@ -50,6 +66,8 @@ func NewType(name, kind string, isExported bool) *Type {
 		Fields:     make([]*Field, 0),
 		Methods:    make([]*Method, 0),
 		Interfaces: make([]*Method, 0),
+		Pos:        token.NoPos,
+		End:        token.NoPos,
 	}
 }
 
@@ -62,6 +80,8 @@ func (t *Type) AddField(name, fieldType, tag string, isEmbedded bool, doc string
 		IsEmbedded: isEmbedded,
 		Doc:        doc,
 		Parent:     t,
+		Pos:        token.NoPos,
+		End:        token.NoPos,
 	}
 	t.Fields = append(t.Fields, field)
 	return field
@@ -75,6 +95,8 @@ func (t *Type) AddMethod(name, signature string, isEmbedded bool, doc string) *M
 		IsEmbedded: isEmbedded,
 		Doc:        doc,
 		Parent:     t,
+		Pos:        token.NoPos,
+		End:        token.NoPos,
 	}
 	t.Methods = append(t.Methods, method)
 	return method
@@ -88,7 +110,51 @@ func (t *Type) AddInterfaceMethod(name, signature string, isEmbedded bool, doc s
 		IsEmbedded: isEmbedded,
 		Doc:        doc,
 		Parent:     t,
+		Pos:        token.NoPos,
+		End:        token.NoPos,
 	}
 	t.Interfaces = append(t.Interfaces, method)
 	return method
+}
+
+// SetPosition sets the position information for this type
+func (t *Type) SetPosition(pos, end token.Pos) {
+	t.Pos = pos
+	t.End = end
+}
+
+// GetPosition returns the position of this type
+func (t *Type) GetPosition() *Position {
+	if t.File == nil {
+		return nil
+	}
+	return t.File.GetPositionInfo(t.Pos, t.End)
+}
+
+// SetFieldPosition sets the position information for a field
+func (f *Field) SetPosition(pos, end token.Pos) {
+	f.Pos = pos
+	f.End = end
+}
+
+// GetPosition returns the position of this field
+func (f *Field) GetPosition() *Position {
+	if f.Parent == nil || f.Parent.File == nil {
+		return nil
+	}
+	return f.Parent.File.GetPositionInfo(f.Pos, f.End)
+}
+
+// SetMethodPosition sets the position information for a method
+func (m *Method) SetPosition(pos, end token.Pos) {
+	m.Pos = pos
+	m.End = end
+}
+
+// GetPosition returns the position of this method
+func (m *Method) GetPosition() *Position {
+	if m.Parent == nil || m.Parent.File == nil {
+		return nil
+	}
+	return m.Parent.File.GetPositionInfo(m.Pos, m.End)
 }

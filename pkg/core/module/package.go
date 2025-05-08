@@ -1,6 +1,10 @@
 // Package module defines package-related types for the module data model.
 package module
 
+import (
+	"go/token"
+)
+
 // Package represents a Go package within a module
 type Package struct {
 	// Package identity
@@ -18,6 +22,13 @@ type Package struct {
 	Constants     map[string]*Constant // Constants defined in this package
 	Imports       map[string]*Import   // Packages imported by this package
 	Documentation string               // Package documentation
+
+	// Position information
+	Pos token.Pos // Start position in source
+	End token.Pos // End position in source
+
+	// Tracking
+	IsModified bool // Whether this package has been modified since loading
 }
 
 // Import represents a package import
@@ -26,6 +37,11 @@ type Import struct {
 	Name    string // Local name (if renamed, otherwise "")
 	IsBlank bool   // Whether it's a blank import (_)
 	Doc     string // Documentation comment
+	File    *File  // File that contains this import
+
+	// Position information
+	Pos token.Pos // Start position in source
+	End token.Pos // End position in source
 }
 
 // NewPackage creates a new empty package
@@ -40,6 +56,9 @@ func NewPackage(name, importPath, dir string) *Package {
 		Variables:  make(map[string]*Variable),
 		Constants:  make(map[string]*Constant),
 		Imports:    make(map[string]*Import),
+		Pos:        token.NoPos,
+		End:        token.NoPos,
+		IsModified: false,
 	}
 }
 
@@ -47,35 +66,41 @@ func NewPackage(name, importPath, dir string) *Package {
 func (p *Package) AddFile(file *File) {
 	p.Files[file.Name] = file
 	file.Package = p
+	p.IsModified = true
 }
 
 // AddType adds a type to the package
 func (p *Package) AddType(typ *Type) {
 	p.Types[typ.Name] = typ
 	typ.Package = p
+	p.IsModified = true
 }
 
 // AddFunction adds a function to the package
 func (p *Package) AddFunction(fn *Function) {
 	p.Functions[fn.Name] = fn
 	fn.Package = p
+	p.IsModified = true
 }
 
 // AddVariable adds a variable to the package
 func (p *Package) AddVariable(v *Variable) {
 	p.Variables[v.Name] = v
 	v.Package = p
+	p.IsModified = true
 }
 
 // AddConstant adds a constant to the package
 func (p *Package) AddConstant(c *Constant) {
 	p.Constants[c.Name] = c
 	c.Package = p
+	p.IsModified = true
 }
 
 // AddImport adds an import to the package
 func (p *Package) AddImport(i *Import) {
 	p.Imports[i.Path] = i
+	p.IsModified = true
 }
 
 // GetFunction gets a function by name
@@ -96,4 +121,35 @@ func (p *Package) GetVariable(name string) *Variable {
 // GetConstant gets a constant by name
 func (p *Package) GetConstant(name string) *Constant {
 	return p.Constants[name]
+}
+
+// SetPosition sets the position information for this package
+func (p *Package) SetPosition(pos, end token.Pos) {
+	p.Pos = pos
+	p.End = end
+}
+
+// NewImport creates a new import
+func NewImport(path, name string, isBlank bool) *Import {
+	return &Import{
+		Path:    path,
+		Name:    name,
+		IsBlank: isBlank,
+		Pos:     token.NoPos,
+		End:     token.NoPos,
+	}
+}
+
+// SetPosition sets the position information for this import
+func (i *Import) SetPosition(pos, end token.Pos) {
+	i.Pos = pos
+	i.End = end
+}
+
+// GetPosition returns the position of this import
+func (i *Import) GetPosition() *Position {
+	if i.File == nil {
+		return nil
+	}
+	return i.File.GetPositionInfo(i.Pos, i.End)
 }

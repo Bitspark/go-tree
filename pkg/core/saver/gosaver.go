@@ -41,7 +41,7 @@ func (s *GoModuleSaver) SaveWithOptions(module *module.Module, options SaveOptio
 // SaveToWithOptions writes a module to a new location with custom options
 func (s *GoModuleSaver) SaveToWithOptions(module *module.Module, dir string, options SaveOptions) error {
 	// Create the directory if it doesn't exist
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
 
@@ -91,7 +91,7 @@ func (s *GoModuleSaver) saveGoMod(module *module.Module, dir string) error {
 		content += ")\n"
 	}
 
-	return os.WriteFile(goModPath, []byte(content), 0644)
+	return os.WriteFile(goModPath, []byte(content), 0600)
 }
 
 // savePackage saves a package to disk
@@ -107,7 +107,7 @@ func (s *GoModuleSaver) savePackage(pkg *module.Package, baseDir string, options
 	}
 
 	// Create the directory if it doesn't exist
-	if err := os.MkdirAll(pkgDir, 0755); err != nil {
+	if err := os.MkdirAll(pkgDir, 0750); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", pkgDir, err)
 	}
 
@@ -162,7 +162,7 @@ func (s *GoModuleSaver) saveFile(file *module.File, dir string, options SaveOpti
 	}
 
 	// Write the file
-	return os.WriteFile(filePath, source, 0644)
+	return os.WriteFile(filePath, source, 0600)
 }
 
 // generateFileSource generates the Go source code for a file
