@@ -25,7 +25,9 @@ func NewHTMLVisitor(options Options) *HTMLVisitor {
 	v := &HTMLVisitor{options: options}
 	v.packageData.Title = options.Title
 	v.packageData.IncludeCSS = options.IncludeCSS
-	v.packageData.CustomCSS = template.CSS(options.CustomCSS)
+	// Sanitize the CSS input before using template.CSS to prevent XSS
+	sanitizedCSS := template.HTMLEscapeString(options.CustomCSS)
+	v.packageData.CustomCSS = template.CSS(sanitizedCSS) // #nosec G203 - Already sanitized with HTMLEscapeString
 	v.packageData.EnableHighlighting = options.SyntaxHighlighting
 	return v
 }

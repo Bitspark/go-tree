@@ -103,7 +103,9 @@ func formatCode(code string) template.HTML {
 	}
 	result += "</pre>"
 
-	return template.HTML(result)
+	// Safe to use template.HTML here as we've properly escaped all user input
+	// and are only adding known-safe HTML tags for formatting
+	return template.HTML(result) // #nosec G203 - Input code is properly escaped with HTMLEscapeString
 }
 
 // typeKindClass returns a CSS class based on the type kind
@@ -126,8 +128,11 @@ func formatDocComment(doc string) template.HTML {
 		return ""
 	}
 
+	// Escape HTML characters to prevent XSS
+	doc = template.HTMLEscapeString(doc)
+
 	// Replace newlines with <br> for HTML display
 	doc = strings.ReplaceAll(doc, "\n", "<br>")
 
-	return template.HTML("<div class=\"doc-comment\">" + doc + "</div>")
+	return template.HTML("<div class=\"doc-comment\">" + doc + "</div>") // #nosec G203 - Input doc is properly escaped with HTMLEscapeString
 }

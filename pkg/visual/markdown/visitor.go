@@ -97,7 +97,7 @@ func (v *MarkdownVisitor) VisitType(typ model.GoType) error {
 // VisitFunction processes a function declaration
 func (v *MarkdownVisitor) VisitFunction(fn model.GoFunction) error {
 	// Format function header
-	header := "## Function: "
+	var header string
 	if fn.Receiver != nil {
 		receiverStr := fn.Receiver.Type
 		if fn.Receiver.Name != "" {

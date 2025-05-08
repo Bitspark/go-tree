@@ -40,6 +40,31 @@ func TestRealPackages(t *testing.T) {
 		},
 	}
 
+	// Clean up outputs directory if saving outputs
+	if os.Getenv("SAVE_TEST_OUTPUT") == "true" {
+		outDir := filepath.Join("testdata", "outputs")
+
+		// Clear previous outputs if directory exists
+		if info, err := os.Stat(outDir); err == nil && info.IsDir() {
+			entries, err := os.ReadDir(outDir)
+			if err == nil {
+				for _, entry := range entries {
+					filePath := filepath.Join(outDir, entry.Name())
+					if err := os.Remove(filePath); err != nil {
+						t.Logf("Failed to remove previous output file %s: %v", filePath, err)
+					} else {
+						t.Logf("Removed previous output file: %s", filePath)
+					}
+				}
+			}
+		}
+
+		// Create a clean outputs directory
+		if err := os.MkdirAll(outDir, 0755); err != nil {
+			t.Logf("Failed to create output directory: %v", err)
+		}
+	}
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Parse the package

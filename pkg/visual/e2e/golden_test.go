@@ -47,7 +47,9 @@ func TestAgainstGoldenFiles(t *testing.T) {
 	t.Cleanup(func() {
 		for _, file := range tempFiles {
 			if _, err := os.Stat(file); err == nil {
-				os.Remove(file)
+				if err := os.Remove(file); err != nil {
+					t.Logf("Failed to remove temporary file: %s: %v", file, err)
+				}
 				t.Logf("Cleaned up temporary file: %s", file)
 			}
 		}
