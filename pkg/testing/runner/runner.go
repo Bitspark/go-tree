@@ -59,7 +59,15 @@ func (r *Runner) RunTests(mod *typesys.Module, pkgPath string, opts *common.RunO
 	execResult, err := r.Executor.ExecuteTest(mod, pkgPath, testFlags...)
 	if err != nil {
 		// Don't return error here, as it might just indicate test failures
-		// The error is already recorded in the result
+		// Create a result with the error
+		return &common.TestResult{
+			Package: pkgPath,
+			Tests:   []string{},
+			Passed:  0,
+			Failed:  0,
+			Output:  "",
+			Error:   err,
+		}, nil
 	}
 
 	// Convert execute.TestResult to TestResult
@@ -130,12 +138,21 @@ func (r *Runner) ParseCoverageOutput(output string) (*common.CoverageResult, err
 
 	// Look for coverage percentage in the output
 	// Example: "coverage: 75.0% of statements"
-	coverageRegex := strings.NewReader(`coverage: ([0-9.]+)% of statements`)
 	var coveragePercentage float64
-	if _, err := fmt.Fscanf(coverageRegex, "coverage: %f%% of statements", &coveragePercentage); err == nil {
+	_, err := fmt.Sscanf(output, "coverage: %f%% of statements", &coveragePercentage)
+	if err == nil {
 		result.Percentage = coveragePercentage
 	} else {
-		// If we can't parse the overall percentage, default to 0
+		// If we can't parse the overall percentage, try with a substring search
+		index := strings.Index(output, "coverage: ")
+		if index >= 0 {
+			substr := output[index:]
+			_, err = fmt.Sscanf(substr, "coverage: %f%% of statements", &coveragePercentage)
+			if err == nil {
+				result.Percentage = coveragePercentage
+			}
+		}
+		// If still can't parse, default to 0
 		result.Percentage = 0.0
 	}
 

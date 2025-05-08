@@ -78,9 +78,17 @@ func (g *GoExecutor) Execute(module *typesys.Module, args ...string) (ExecutionR
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			result.ExitCode = exitErr.ExitCode()
 		}
+
+		// For invalid commands, ensure we return an error
+		if result.ExitCode != 0 {
+			if result.Error == nil {
+				result.Error = fmt.Errorf("command failed with exit code %d: %s",
+					result.ExitCode, result.StdErr)
+			}
+		}
 	}
 
-	return result, nil
+	return result, result.Error
 }
 
 // ExecuteTest runs tests for a package in the module
@@ -159,8 +167,8 @@ func (g *GoExecutor) ExecuteFunc(module *typesys.Module, funcSymbol *typesys.Sym
 
 // parseTestNames extracts test names from go test output
 func parseTestNames(output string) []string {
-	// Simple regex to match "--- PASS: TestName" or "--- FAIL: TestName"
-	re := regexp.MustCompile(`--- (PASS|FAIL): (Test\w+)`)
+	// Simple regex to match "--- PASS: TestName" or "--- FAIL: TestName" or "--- SKIP: TestName"
+	re := regexp.MustCompile(`--- (PASS|FAIL|SKIP): (Test\w+)`)
 	matches := re.FindAllStringSubmatch(output, -1)
 
 	tests := make([]string, 0, len(matches))

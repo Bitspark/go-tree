@@ -70,14 +70,27 @@ func (s *Sandbox) Execute(code string) (*ExecutionResult, error) {
 		return nil, fmt.Errorf("failed to write temporary code file: %w", writeErr)
 	}
 
-	// Create a go.mod file referencing the original module
-	goModContent := fmt.Sprintf(`module sandbox
+	// Check if the code imports from the module - simple check for module name in imports
+	needsModule := s.Module != nil && strings.Contains(code, s.Module.Path)
+
+	// Create an appropriate go.mod file
+	var goModContent string
+	if needsModule {
+		// Create a go.mod file with a replace directive for the module
+		goModContent = fmt.Sprintf(`module sandbox
 
 go 1.18
 
 require %s v0.0.0
 replace %s => %s
 `, s.Module.Path, s.Module.Path, s.Module.Dir)
+	} else {
+		// Create a simple go.mod for standalone code
+		goModContent = `module sandbox
+
+go 1.18
+`
+	}
 
 	goModFile := filepath.Join(tempDir, "go.mod")
 	if writeErr := ioutil.WriteFile(goModFile, []byte(goModContent), 0600); writeErr != nil {
