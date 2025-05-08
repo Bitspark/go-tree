@@ -3,7 +3,6 @@ package execute
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,7 +73,7 @@ type ExecutionContextImpl struct {
 // NewExecutionContextImpl creates a new execution context
 func NewExecutionContextImpl(module *typesys.Module) (*ExecutionContextImpl, error) {
 	// Create a temporary directory for execution
-	tempDir, err := ioutil.TempDir("", "goexec-")
+	tempDir, err := os.MkdirTemp("", "goexec-")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 	}
@@ -95,7 +94,7 @@ func (ctx *ExecutionContextImpl) Execute(code string, args ...interface{}) (*Exe
 	filename := "execute.go"
 	filePath := filepath.Join(ctx.TempDir, filename)
 
-	if err := ioutil.WriteFile(filePath, []byte(code), 0600); err != nil {
+	if err := os.WriteFile(filePath, []byte(code), 0600); err != nil {
 		return nil, fmt.Errorf("failed to write code to file: %w", err)
 	}
 
@@ -121,20 +120,22 @@ func (ctx *ExecutionContextImpl) Execute(code string, args ...interface{}) (*Exe
 
 // ExecuteInline executes code inline with the current context
 func (ctx *ExecutionContextImpl) ExecuteInline(code string) (*ExecutionResult, error) {
-	// For inline execution, we'll enhance the code with imports for the current module
-	// and wrap it in a function that can be executed
+	// For inline execution, we'll wrap the code in a basic main function
+	// Only add module import if it's a valid module path
+	var imports string
+	if ctx.Module != nil && ctx.Module.Path != "" {
+		imports = fmt.Sprintf("import (\n  \"%s\"\n  \"fmt\"\n)\n", ctx.Module.Path)
+	} else {
+		imports = "import \"fmt\"\n"
+	}
 
-	packageImport := fmt.Sprintf("import \"%s\"\n", ctx.Module.Path)
-	wrappedCode := fmt.Sprintf(`
-package main
+	wrappedCode := fmt.Sprintf(`package main
 
 %s
-import "fmt"
-
 func main() {
-%s
+	%s
 }
-`, packageImport, code)
+`, imports, code)
 
 	return ctx.Execute(wrappedCode)
 }

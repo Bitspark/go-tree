@@ -513,7 +513,7 @@ func {{.TestName}}(t *testing.T) {
 			name:     "basic test case",
 			{{if .HasParams}}
 			// TODO: Add actual test inputs
-			{{range $i, $_ := .ParamValues}}
+			{{range $i, $val := .ParamValues}}
 			param{{$i}}: {{$val}},
 			{{end}}
 			{{end}}
@@ -589,7 +589,7 @@ func {{.TestName}}(t *testing.T) {
 			name:     "basic test case",
 			{{if .HasParams}}
 			// TODO: Add actual test inputs
-			{{range $i, $_ := .ParamValues}}
+			{{range $i, $val := .ParamValues}}
 			param{{$i}}: {{$val}},
 			{{end}}
 			{{end}}
