@@ -7,10 +7,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"bitspark.dev/go-tree/pkg/core/loader"
-	"bitspark.dev/go-tree/pkg/core/module"
-	"bitspark.dev/go-tree/pkg/core/saver"
-	"bitspark.dev/go-tree/pkg/transform/extract"
+	"bitspark.dev/go-tree/pkgold/core/loader"
+	"bitspark.dev/go-tree/pkgold/core/module"
+	"bitspark.dev/go-tree/pkgold/core/saver"
+	"bitspark.dev/go-tree/pkgold/transform/extract"
 )
 
 type transformOptions struct {

@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"bitspark.dev/go-tree/pkg/core/loader"
+	"bitspark.dev/go-tree/pkgold/core/loader"
 )
 
 type analyzeOptions struct {

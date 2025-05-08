@@ -17,7 +17,7 @@ coverage.html
 build-errors.log
 
 # E2E test outputs
-/pkg/visual/e2e/testdata/outputs/
+/pkgold/visual/e2e/testdata/outputs/
 *.current
 
 # IDE/editor specific files

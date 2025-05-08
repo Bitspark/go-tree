@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"bitspark.dev/go-tree/pkg/core/loader"
-	"bitspark.dev/go-tree/pkg/index"
+	"bitspark.dev/go-tree/pkgold/core/loader"
+	"bitspark.dev/go-tree/pkgold/index"
 )
 
 type findOptions struct {

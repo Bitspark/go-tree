@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"bitspark.dev/go-tree/pkg/core/loader"
-	"bitspark.dev/go-tree/pkg/core/saver"
-	"bitspark.dev/go-tree/pkg/transform/rename"
+	"bitspark.dev/go-tree/pkgold/core/loader"
+	"bitspark.dev/go-tree/pkgold/core/saver"
+	"bitspark.dev/go-tree/pkgold/transform/rename"
 )
 
 type renameOptions struct {

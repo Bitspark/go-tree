@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"bitspark.dev/go-tree/pkg/core/loader"
-	"bitspark.dev/go-tree/pkg/core/saver"
+	"bitspark.dev/go-tree/pkgold/core/loader"
+	"bitspark.dev/go-tree/pkgold/core/saver"
 )
 
 func main() {
