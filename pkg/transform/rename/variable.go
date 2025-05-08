@@ -5,24 +5,35 @@ import (
 	"fmt"
 
 	"bitspark.dev/go-tree/pkg/core/module"
+	"bitspark.dev/go-tree/pkg/transform"
 )
 
 // VariableRenamer renames variables in a module
 type VariableRenamer struct {
 	OldName string // Original variable name
 	NewName string // New variable name
+	DryRun  bool   // Whether to perform a dry run
 }
 
 // NewVariableRenamer creates a new variable renamer
-func NewVariableRenamer(oldName, newName string) *VariableRenamer {
+func NewVariableRenamer(oldName, newName string, dryRun bool) *VariableRenamer {
 	return &VariableRenamer{
 		OldName: oldName,
 		NewName: newName,
+		DryRun:  dryRun,
 	}
 }
 
 // Transform implements the ModuleTransformer interface
-func (r *VariableRenamer) Transform(mod *module.Module) error {
+func (r *VariableRenamer) Transform(mod *module.Module) *transform.TransformationResult {
+	result := &transform.TransformationResult{
+		Summary:       fmt.Sprintf("Rename variable '%s' to '%s'", r.OldName, r.NewName),
+		Success:       false,
+		IsDryRun:      r.DryRun,
+		AffectedFiles: []string{},
+		Changes:       []transform.ChangePreview{},
+	}
+
 	// Track if we found the variable to rename
 	found := false
 
@@ -31,6 +42,42 @@ func (r *VariableRenamer) Transform(mod *module.Module) error {
 		// Check if the variable exists in this package
 		variable, ok := pkg.Variables[r.OldName]
 		if ok {
+			found = true
+
+			// Track file information for result
+			filePath := ""
+			if variable.File != nil {
+				filePath = variable.File.Path
+
+				// Add to affected files if not already there
+				fileAlreadyAdded := false
+				for _, f := range result.AffectedFiles {
+					if f == filePath {
+						fileAlreadyAdded = true
+						break
+					}
+				}
+
+				if !fileAlreadyAdded {
+					result.AffectedFiles = append(result.AffectedFiles, filePath)
+				}
+			}
+
+			// Add the change preview
+			lineNum := 0
+
+			result.Changes = append(result.Changes, transform.ChangePreview{
+				FilePath:   filePath,
+				LineNumber: lineNum,
+				Original:   r.OldName,
+				New:        r.NewName,
+			})
+
+			// If this is just a dry run, don't actually make changes
+			if r.DryRun {
+				continue
+			}
+
 			// Store original position
 			originalPos := variable.Pos
 			originalEnd := variable.End
@@ -62,16 +109,22 @@ func (r *VariableRenamer) Transform(mod *module.Module) error {
 			if newVar.File != nil {
 				newVar.File.IsModified = true
 			}
-
-			found = true
 		}
 	}
 
 	if !found {
-		return fmt.Errorf("variable '%s' not found", r.OldName)
+		result.Error = fmt.Errorf("variable '%s' not found", r.OldName)
+		result.Details = "No variables matched the given name"
+		return result
 	}
 
-	return nil
+	// Update the result
+	result.Success = true
+	result.FilesAffected = len(result.AffectedFiles)
+	result.Details = fmt.Sprintf("Successfully renamed '%s' to '%s' in %d file(s)",
+		r.OldName, r.NewName, result.FilesAffected)
+
+	return result
 }
 
 // Name returns the name of the transformer

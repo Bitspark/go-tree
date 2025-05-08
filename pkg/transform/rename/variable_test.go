@@ -37,12 +37,12 @@ func TestVariableRenamer(t *testing.T) {
 	}
 
 	// Create a transformer to rename DefaultTimeout to GlobalTimeout
-	renamer := NewVariableRenamer("DefaultTimeout", "GlobalTimeout")
+	renamer := NewVariableRenamer("DefaultTimeout", "GlobalTimeout", false)
 
 	// Apply the transformation
-	err = renamer.Transform(mod)
-	if err != nil {
-		t.Fatalf("Failed to apply transformation: %v", err)
+	result := renamer.Transform(mod)
+	if !result.Success {
+		t.Fatalf("Failed to apply transformation: %v", result.Error)
 	}
 
 	// Verify the old variable no longer exists

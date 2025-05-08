@@ -50,6 +50,7 @@ are performed on a Go module as a single entity.`,
 	cmd.AddCommand(newVisualizeCmd())
 	cmd.AddCommand(newAnalyzeCmd())
 	cmd.AddCommand(newExecuteCmd())
+	cmd.AddCommand(newRenameCmd())
 
 	return cmd
 }
