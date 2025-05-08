@@ -1,14 +1,14 @@
-package parser
+package parse
 
 import (
 	"testing"
 
-	"bitspark.dev/go-tree/internal/model"
+	"bitspark.dev/go-tree/pkg/core/model"
 )
 
 func TestParsePackage(t *testing.T) {
 	// Test parsing the sample package we created
-	pkg, err := ParsePackage("../../test/samplepackage")
+	pkg, err := ParsePackage("../../../testdata/samplepackage")
 	if err != nil {
 		t.Fatalf("Failed to parse package: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestParsePackage(t *testing.T) {
 
 // Test parsing a specific type declaration
 func TestParseType(t *testing.T) {
-	pkg, err := ParsePackage("../../test/samplepackage")
+	pkg, err := ParsePackage("../../../testdata/samplepackage")
 	if err != nil {
 		t.Fatalf("Failed to parse package: %v", err)
 	}

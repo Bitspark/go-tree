@@ -2,9 +2,9 @@
 package tree
 
 import (
-	"bitspark.dev/go-tree/internal/formatter"
-	"bitspark.dev/go-tree/internal/model"
-	"bitspark.dev/go-tree/internal/parser"
+	"bitspark.dev/go-tree/pkg/core/format"
+	"bitspark.dev/go-tree/pkg/core/model"
+	"bitspark.dev/go-tree/pkg/core/parse"
 )
 
 // Package represents a parsed Go package
@@ -14,7 +14,7 @@ type Package struct {
 
 // Parse parses a Go package from the given directory and returns a Package.
 func Parse(dir string) (*Package, error) {
-	pkg, err := parser.ParsePackage(dir)
+	pkg, err := parse.ParsePackage(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -23,7 +23,7 @@ func Parse(dir string) (*Package, error) {
 
 // Format formats a Package into a single Go source file.
 func (p *Package) Format() (string, error) {
-	return formatter.FormatPackage(p.Model)
+	return format.FormatPackage(p.Model)
 }
 
 // Get package model getters

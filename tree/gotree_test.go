@@ -14,10 +14,15 @@ func TestParseAndFormat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		err := os.RemoveAll(tempDir)
+		if err != nil {
+			t.Logf("Failed to remove temp directory: %v", err)
+		}
+	}()
 
 	// Parse the sample package
-	pkg, err := Parse("../test/samplepackage")
+	pkg, err := Parse("../testdata/samplepackage")
 	if err != nil {
 		t.Fatalf("Failed to parse package: %v", err)
 	}
@@ -94,7 +99,7 @@ func TestParseAndFormat(t *testing.T) {
 
 func TestOptionsCustomPackageName(t *testing.T) {
 	// Parse the sample package
-	pkg, err := Parse("../test/samplepackage")
+	pkg, err := Parse("../testdata/samplepackage")
 	if err != nil {
 		t.Fatalf("Failed to parse package: %v", err)
 	}
@@ -126,7 +131,7 @@ func TestOptionsCustomPackageName(t *testing.T) {
 
 func TestTypeIntrospection(t *testing.T) {
 	// Parse the sample package
-	pkg, err := Parse("../test/samplepackage")
+	pkg, err := Parse("../testdata/samplepackage")
 	if err != nil {
 		t.Fatalf("Failed to parse package: %v", err)
 	}
@@ -178,7 +183,12 @@ func TestParseStdLibPackage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		err := os.RemoveAll(tempDir)
+		if err != nil {
+			t.Logf("Failed to remove temp directory: %v", err)
+		}
+	}()
 
 	// Find the path to the standard library package using go list
 	stdPkg := "fmt"

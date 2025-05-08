@@ -1,5 +1,6 @@
-// Package parser provides functionality for parsing Go packages into model structures
-package parser
+// Package parse provides functionality for parsing Go packages into model structures.
+// This package is part of the public API for go-tree.
+package parse
 
 import (
 	"bytes"
@@ -14,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"bitspark.dev/go-tree/internal/model"
+	"bitspark.dev/go-tree/pkg/core/model"
 )
 
 // fileSet represents a set of parsed Go files
