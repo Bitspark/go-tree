@@ -5,6 +5,7 @@ import (
 	"go/types"
 	"sync"
 
+	"bitspark.dev/go-tree/pkg/analyze/interfaces"
 	"bitspark.dev/go-tree/pkg/typesys"
 )
 
@@ -206,20 +207,51 @@ func (idx *Index) FindReferencesInFile(filePath string) []*typesys.Reference {
 	return idx.referencesByFile[filePath]
 }
 
-// FindMethods returns all methods for the given type.
+// FindMethods finds all methods for a given type name
 func (idx *Index) FindMethods(typeName string) []*typesys.Symbol {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
-	return idx.methodsByReceiver[typeName]
+	var methods []*typesys.Symbol
+
+	// Find all methods in the index
+	allMethods := idx.FindSymbolsByKind(typesys.KindMethod)
+
+	// Get all types with this name
+	typeSymbols := idx.FindSymbolsByName(typeName)
+
+	// Create a map of type IDs for quick lookup
+	typeIDs := make(map[string]bool)
+	for _, typ := range typeSymbols {
+		typeIDs[typ.ID] = true
+	}
+
+	// Add methods that belong to any of these types
+	for _, method := range allMethods {
+		if method.Parent != nil && typeIDs[method.Parent.ID] {
+			methods = append(methods, method)
+		}
+	}
+
+	return methods
 }
 
-// FindImplementations returns all implementations of the given interface.
-func (idx *Index) FindImplementations(interfaceSym *typesys.Symbol) []*typesys.Symbol {
-	idx.mu.RLock()
-	defer idx.mu.RUnlock()
+// FindImplementations finds all types that implement the given interface
+func (idx *Index) FindImplementations(interfaceSymbol *typesys.Symbol) []*typesys.Symbol {
+	// Use the specialized interfaces package to find implementations
+	if interfaceSymbol == nil || interfaceSymbol.Kind != typesys.KindInterface {
+		return nil
+	}
 
-	return idx.interfaceImpls[interfaceSym.ID]
+	// Import the interfaces package and use the finder
+	finder := interfaces.NewInterfaceFinder(idx.Module)
+	impls, err := finder.FindImplementations(interfaceSymbol)
+	if err != nil {
+		// Log the error and return empty result
+		return nil
+	}
+
+	return impls
 }
 
 // clear clears all maps in the index.

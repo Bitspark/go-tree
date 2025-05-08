@@ -1,7 +1,6 @@
 package graph
 
 import (
-	"container/list"
 	"errors"
 )
 
@@ -113,11 +112,16 @@ func dfsWithOptions(g *DirectedGraph, node *Node, visited map[interface{}]bool, 
 		return true
 	}
 
-	// Mark as visited
+	// Mark as visited before checking skip
 	visited[node.ID] = true
 
+	// Skip this node and its subtree if skip function says so
+	if opts.SkipFunc != nil && opts.SkipFunc(node) {
+		return true
+	}
+
 	// Visit the current node (if not the start node, or if we want to include the start)
-	if (depth > 0 || opts.IncludeStart) && !skipNode(node, opts) {
+	if depth > 0 || opts.IncludeStart {
 		if !visit(node) {
 			return false // Stop traversal if visit returns false
 		}
@@ -128,7 +132,7 @@ func dfsWithOptions(g *DirectedGraph, node *Node, visited map[interface{}]bool, 
 
 	// Visit each unvisited neighbor recursively
 	for _, neighbor := range neighbors {
-		if !visited[neighbor.ID] && !skipNode(neighbor, opts) {
+		if !visited[neighbor.ID] {
 			if !dfsWithOptions(g, neighbor, visited, opts, visit, depth+1) {
 				return false
 			}
@@ -140,46 +144,68 @@ func dfsWithOptions(g *DirectedGraph, node *Node, visited map[interface{}]bool, 
 
 // bfsWithOptions implements a breadth-first search with options.
 func bfsWithOptions(g *DirectedGraph, start *Node, visited map[interface{}]bool, opts *TraversalOptions, visit VisitFunc) {
-	// Create a queue and add the start node
-	queue := list.New()
+	// Skip the start node if skip function says so
+	if opts.SkipFunc != nil && opts.SkipFunc(start) {
+		return
+	}
 
-	// Track node depths
-	depths := make(map[interface{}]int)
+	// Create a queue for BFS
+	type queueItem struct {
+		node  *Node
+		depth int
+	}
 
-	// Add start node to queue
-	queue.PushBack(start)
-	depths[start.ID] = 0
+	queue := []*queueItem{{node: start, depth: 0}}
+
+	// Mark start node as visited
 	visited[start.ID] = true
 
+	// Visit start node if required
+	if opts.IncludeStart {
+		if !visit(start) {
+			return // Stop if visitor returns false
+		}
+	}
+
 	// Process the queue
-	for queue.Len() > 0 {
+	for len(queue) > 0 {
 		// Get the next node
-		element := queue.Front()
-		queue.Remove(element)
+		current := queue[0]
+		queue = queue[1:]
 
-		node := element.Value.(*Node)
-		depth := depths[node.ID]
+		node := current.node
+		depth := current.depth
 
-		// Check if we've reached the maximum depth
-		if opts.MaxDepth > 0 && depth > opts.MaxDepth {
+		// Don't process neighbors if we've reached max depth
+		if opts.MaxDepth > 0 && depth >= opts.MaxDepth {
 			continue
 		}
 
-		// Visit the current node
-		if (depth > 0 || opts.IncludeStart) && !skipNode(node, opts) {
-			if !visit(node) {
-				return // Stop traversal if visit returns false
-			}
-		}
-
-		// Add unvisited neighbors to the queue
+		// Get neighbors based on direction
 		neighbors := getNeighbors(g, node, opts.Direction)
+
+		// Process each neighbor
 		for _, neighbor := range neighbors {
-			if !visited[neighbor.ID] && !skipNode(neighbor, opts) {
-				visited[neighbor.ID] = true
-				queue.PushBack(neighbor)
-				depths[neighbor.ID] = depth + 1
+			// Skip if already visited
+			if visited[neighbor.ID] {
+				continue
 			}
+
+			// Skip if skip function says so
+			if opts.SkipFunc != nil && opts.SkipFunc(neighbor) {
+				continue
+			}
+
+			// Mark as visited before processing
+			visited[neighbor.ID] = true
+
+			// Visit the neighbor node
+			if !visit(neighbor) {
+				return // Stop if visitor returns false
+			}
+
+			// Add to queue for further exploration
+			queue = append(queue, &queueItem{node: neighbor, depth: depth + 1})
 		}
 	}
 }
@@ -200,16 +226,22 @@ func getNeighbors(g *DirectedGraph, node *Node, direction TraversalDirection) []
 		outNodes := g.GetOutNodes(node.ID)
 		inNodes := g.GetInNodes(node.ID)
 
-		// Combine both sets, avoiding duplicates
-		neighbors = outNodes
+		// Create a map to track seen nodes to avoid duplicates
 		nodeMap := make(map[interface{}]bool)
+		neighbors = make([]*Node, 0, len(outNodes)+len(inNodes))
 
+		// Add outgoing nodes first
 		for _, n := range outNodes {
-			nodeMap[n.ID] = true
+			if !nodeMap[n.ID] {
+				nodeMap[n.ID] = true
+				neighbors = append(neighbors, n)
+			}
 		}
 
+		// Then add incoming nodes (if not already added)
 		for _, n := range inNodes {
 			if !nodeMap[n.ID] {
+				nodeMap[n.ID] = true
 				neighbors = append(neighbors, n)
 			}
 		}

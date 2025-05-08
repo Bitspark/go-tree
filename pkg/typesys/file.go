@@ -46,6 +46,19 @@ func (f *File) AddSymbol(sym *Symbol) {
 	}
 }
 
+// RemoveSymbol removes a symbol from the file.
+func (f *File) RemoveSymbol(sym *Symbol) {
+	// Find and remove the symbol from the Symbols slice
+	for i, s := range f.Symbols {
+		if s == sym {
+			// Remove by swapping with the last element and truncating
+			f.Symbols[i] = f.Symbols[len(f.Symbols)-1]
+			f.Symbols = f.Symbols[:len(f.Symbols)-1]
+			break
+		}
+	}
+}
+
 // AddImport adds an import to the file.
 func (f *File) AddImport(imp *Import) {
 	f.Imports = append(f.Imports, imp)

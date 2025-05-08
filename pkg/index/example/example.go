@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 
+	"bitspark.dev/go-tree/pkg/loader"
+
 	"bitspark.dev/go-tree/pkg/index"
 	"bitspark.dev/go-tree/pkg/typesys"
 )
@@ -18,7 +20,7 @@ func main() {
 	}
 
 	// Load the module with type system
-	module, err := typesys.LoadModule(moduleDir, &typesys.LoadOptions{
+	module, err := loader.LoadModule(moduleDir, &typesys.LoadOptions{
 		IncludeTests:   true,
 		IncludePrivate: true,
 		Trace:          true, // Enable verbose output
@@ -47,15 +49,6 @@ func main() {
 	interfaces := indexer.Index.FindSymbolsByKind(typesys.KindInterface)
 	for _, iface := range interfaces {
 		fmt.Printf("- %s (in %s)\n", iface.Name, iface.Package.Name)
-
-		// Find implementations of this interface
-		impls := indexer.FindImplementations(iface)
-		if len(impls) > 0 {
-			fmt.Printf("  Implementations:\n")
-			for _, impl := range impls {
-				fmt.Printf("  - %s (in %s)\n", impl.Name, impl.Package.Name)
-			}
-		}
 	}
 
 	// Example: Find all functions with "Find" in their name

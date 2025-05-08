@@ -2,6 +2,7 @@
 package cmd
 
 import (
+	"bitspark.dev/go-tree/pkg/loader"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -47,7 +48,7 @@ func Visualize(opts *VisualizeOptions) error {
 	}
 
 	// Load the module with type information
-	module, err := typesys.LoadModule(opts.ModuleDir, &typesys.LoadOptions{
+	module, err := loader.LoadModule(opts.ModuleDir, &typesys.LoadOptions{
 		IncludeTests:   opts.IncludeTests,
 		IncludePrivate: opts.IncludePrivate,
 		Trace:          false,

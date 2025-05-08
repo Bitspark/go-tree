@@ -136,56 +136,6 @@ func (ctx *CommandContext) FindUsages(name string, file string, line, column int
 	return nil
 }
 
-// FindImplementations finds all implementations of an interface.
-func (ctx *CommandContext) FindImplementations(name string) error {
-	// Find interface symbol
-	symbols := ctx.Indexer.FindSymbolByNameAndType(name, typesys.KindInterface)
-	if len(symbols) == 0 {
-		return fmt.Errorf("no interface found with name: %s", name)
-	}
-
-	// If multiple interfaces found, show list
-	if len(symbols) > 1 {
-		fmt.Fprintf(os.Stderr, "Multiple interfaces found with name '%s':\n", name)
-		for i, sym := range symbols {
-			fmt.Fprintf(os.Stderr, "  %d. %s in %s\n", i+1, sym.Name, sym.Package.Name)
-		}
-
-		// For now, just use the first one
-		fmt.Fprintf(os.Stderr, "Using first match: %s in %s\n", symbols[0].Name, symbols[0].Package.Name)
-	}
-
-	// Find implementations
-	implementations := ctx.Indexer.FindImplementations(symbols[0])
-
-	// Print output
-	if ctx.Verbose {
-		fmt.Printf("Found %d implementations of '%s'\n", len(implementations), symbols[0].Name)
-	}
-
-	// Create a tab writer for formatting
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer w.Flush()
-
-	// Print header
-	fmt.Fprintln(w, "Type\tPackage\tFile\tLine")
-
-	// Print implementations
-	for _, impl := range implementations {
-		var location string
-		pos := impl.GetPosition()
-		if pos != nil {
-			location = fmt.Sprintf("%d", pos.LineStart)
-		} else {
-			location = "-"
-		}
-
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", impl.Name, impl.Package.Name, impl.File.Path, location)
-	}
-
-	return nil
-}
-
 // SearchSymbols searches for symbols matching the given pattern.
 func (ctx *CommandContext) SearchSymbols(pattern string, kindFilter string) error {
 	var symbols []*typesys.Symbol
