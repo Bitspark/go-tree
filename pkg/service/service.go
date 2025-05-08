@@ -17,10 +17,12 @@ type Config struct {
 	IncludeTests bool   // Whether to include test files
 
 	// Multi-module parameters
-	WithDeps     bool                     // Whether to load dependencies
-	ExtraModules []string                 // Additional module directories to load
-	ModuleConfig map[string]*ModuleConfig // Per-module configuration
-	Verbose      bool                     // Enable verbose logging
+	WithDeps        bool                     // Whether to load dependencies
+	DependencyDepth int                      // Maximum depth for dependency loading (0 means only direct dependencies)
+	DownloadMissing bool                     // Whether to download missing dependencies
+	ExtraModules    []string                 // Additional module directories to load
+	ModuleConfig    map[string]*ModuleConfig // Per-module configuration
+	Verbose         bool                     // Enable verbose logging
 }
 
 // ModuleConfig holds configuration for a specific module
