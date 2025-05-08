@@ -3,11 +3,11 @@ package saver
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode"
 
 	"go/ast"
 	"go/token"
@@ -23,7 +23,7 @@ func createTestModule(t *testing.T) *typesys.Module {
 	t.Helper()
 
 	// Create a temporary directory for the module
-	tempDir, err := ioutil.TempDir("", "saver-test-*")
+	tempDir, err := os.MkdirTemp("", "saver-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
@@ -83,7 +83,7 @@ func addFunctionSymbol(t *testing.T, file *typesys.File, name string) *typesys.S
 		ID:       name + "ID",
 		Name:     name,
 		Kind:     typesys.KindFunction,
-		Exported: strings.Title(name) == name, // Exported if starts with uppercase
+		Exported: len(name) > 0 && unicode.IsUpper(rune(name[0])), // Exported if starts with uppercase
 		Package:  file.Package,
 		File:     file,
 	}
@@ -100,7 +100,7 @@ func addTypeSymbol(t *testing.T, file *typesys.File, name string) *typesys.Symbo
 		ID:       name + "ID",
 		Name:     name,
 		Kind:     typesys.KindType,
-		Exported: strings.Title(name) == name, // Exported if starts with uppercase
+		Exported: len(name) > 0 && unicode.IsUpper(rune(name[0])), // Exported if starts with uppercase
 		Package:  file.Package,
 		File:     file,
 	}
@@ -143,7 +143,11 @@ func TestNewGoModuleSaver(t *testing.T) {
 func TestGoModuleSaver_SaveTo(t *testing.T) {
 	// Create a test module
 	module := createTestModule(t)
-	defer os.RemoveAll(module.Dir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(module.Dir); err != nil {
+			t.Logf("Failed to remove module directory: %v", err)
+		}
+	})
 
 	// Add a package
 	pkg := addTestPackage(t, module, "main", "")
@@ -156,11 +160,15 @@ func TestGoModuleSaver_SaveTo(t *testing.T) {
 	addTypeSymbol(t, file, "Config")
 
 	// Create output directory
-	outDir, err := ioutil.TempDir("", "saver-output-*")
+	outDir, err := os.MkdirTemp("", "saver-output-*")
 	if err != nil {
 		t.Fatalf("Failed to create output directory: %v", err)
 	}
-	defer os.RemoveAll(outDir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(outDir); err != nil {
+			t.Logf("Failed to remove output directory: %v", err)
+		}
+	})
 
 	// Create saver
 	saver := NewGoModuleSaver()
@@ -184,7 +192,7 @@ func TestGoModuleSaver_SaveTo(t *testing.T) {
 	}
 
 	// Read the content of main.go
-	content, err := ioutil.ReadFile(mainGoPath)
+	content, err := os.ReadFile(mainGoPath)
 	if err != nil {
 		t.Fatalf("Failed to read main.go: %v", err)
 	}
@@ -208,7 +216,11 @@ func TestGoModuleSaver_SaveTo(t *testing.T) {
 func TestDefaultFileContentGenerator_GenerateFileContent(t *testing.T) {
 	// Create a test module and package
 	module := createTestModule(t)
-	defer os.RemoveAll(module.Dir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(module.Dir); err != nil {
+			t.Logf("Failed to remove module directory: %v", err)
+		}
+	})
 
 	pkg := addTestPackage(t, module, "example", "pkg")
 	file := addTestFile(t, pkg, "example.go")
@@ -307,7 +319,11 @@ func TestSymbolWriters(t *testing.T) {
 func TestModificationTracker(t *testing.T) {
 	// Create a test module structure
 	module := createTestModule(t)
-	defer os.RemoveAll(module.Dir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(module.Dir); err != nil {
+			t.Logf("Failed to remove module directory: %v", err)
+		}
+	})
 
 	pkg := addTestPackage(t, module, "tracker", "")
 	file := addTestFile(t, pkg, "tracker.go")
@@ -420,7 +436,11 @@ func TestRelativePath(t *testing.T) {
 func TestModificationsAnalyzer(t *testing.T) {
 	// Create a test module
 	module := createTestModule(t)
-	defer os.RemoveAll(module.Dir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(module.Dir); err != nil {
+			t.Logf("Failed to remove module directory: %v", err)
+		}
+	})
 
 	// Add two packages
 	pkg1 := addTestPackage(t, module, "pkg1", "pkg1")
@@ -597,7 +617,11 @@ func TestSymbolGenHelpers(t *testing.T) {
 func TestSavePackage(t *testing.T) {
 	// Create a test module
 	module := createTestModule(t)
-	defer os.RemoveAll(module.Dir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(module.Dir); err != nil {
+			t.Logf("Failed to remove module directory: %v", err)
+		}
+	})
 
 	// Add a package
 	pkg := addTestPackage(t, module, "testpkg", "testpkg")
@@ -610,11 +634,15 @@ func TestSavePackage(t *testing.T) {
 	addTypeSymbol(t, file, "TestType")
 
 	// Create output directory
-	outDir, err := ioutil.TempDir("", "saver-pkg-test-*")
+	outDir, err := os.MkdirTemp("", "saver-pkg-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create output directory: %v", err)
 	}
-	defer os.RemoveAll(outDir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(outDir); err != nil {
+			t.Logf("Failed to remove output directory: %v", err)
+		}
+	})
 
 	// Create saver
 	saver := NewGoModuleSaver()
@@ -632,7 +660,7 @@ func TestSavePackage(t *testing.T) {
 	}
 
 	// Read the content to verify
-	content, err := ioutil.ReadFile(expectedFilePath)
+	content, err := os.ReadFile(expectedFilePath)
 	if err != nil {
 		t.Fatalf("Failed to read file: %v", err)
 	}
@@ -678,14 +706,22 @@ func TestASTReconstructionModes(t *testing.T) {
 func TestSaveGoMod(t *testing.T) {
 	// Create a test module
 	module := createTestModule(t)
-	defer os.RemoveAll(module.Dir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(module.Dir); err != nil {
+			t.Logf("Failed to remove module directory: %v", err)
+		}
+	})
 
 	// Create output directory
-	outDir, err := ioutil.TempDir("", "saver-gomod-test-*")
+	outDir, err := os.MkdirTemp("", "saver-gomod-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create output directory: %v", err)
 	}
-	defer os.RemoveAll(outDir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(outDir); err != nil {
+			t.Logf("Failed to remove output directory: %v", err)
+		}
+	})
 
 	// Create saver
 	saver := NewGoModuleSaver()
@@ -703,7 +739,7 @@ func TestSaveGoMod(t *testing.T) {
 	}
 
 	// Read the content to verify
-	content, err := ioutil.ReadFile(goModPath)
+	content, err := os.ReadFile(goModPath)
 	if err != nil {
 		t.Fatalf("Failed to read go.mod: %v", err)
 	}
@@ -720,7 +756,11 @@ func TestSaveGoMod(t *testing.T) {
 func TestSaveWithOptions(t *testing.T) {
 	// Create a test module
 	module := createTestModule(t)
-	defer os.RemoveAll(module.Dir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(module.Dir); err != nil {
+			t.Logf("Failed to remove module directory: %v", err)
+		}
+	})
 
 	// Add a package
 	pkg := addTestPackage(t, module, "main", "")
@@ -736,11 +776,15 @@ func TestSaveWithOptions(t *testing.T) {
 	saver := NewGoModuleSaver()
 
 	// Create output directory
-	outDir, err := ioutil.TempDir("", "saver-options-test-*")
+	outDir, err := os.MkdirTemp("", "saver-options-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create output directory: %v", err)
 	}
-	defer os.RemoveAll(outDir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(outDir); err != nil {
+			t.Logf("Failed to remove output directory: %v", err)
+		}
+	})
 
 	// Test SaveToWithOptions
 	err = saver.SaveToWithOptions(module, outDir, options)
@@ -764,7 +808,7 @@ func TestSaveWithOptions(t *testing.T) {
 	module.Dir = outDir // Set the module dir to our output dir
 
 	// First modify the main.go file to have some content
-	err = ioutil.WriteFile(mainGoPath, []byte("package main\n\nfunc main() {}\n"), 0644)
+	err = os.WriteFile(mainGoPath, []byte("package main\n\nfunc main() {}\n"), 0644)
 	if err != nil {
 		t.Fatalf("Failed to write to main.go: %v", err)
 	}
@@ -807,7 +851,11 @@ func TestSaverErrorCases(t *testing.T) {
 func TestGoModuleSaverFileFilter(t *testing.T) {
 	// Create a test module
 	module := createTestModule(t)
-	defer os.RemoveAll(module.Dir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(module.Dir); err != nil {
+			t.Logf("Failed to remove module directory: %v", err)
+		}
+	})
 
 	// Add a package with two files
 	pkg := addTestPackage(t, module, "main", "")
@@ -817,11 +865,15 @@ func TestGoModuleSaverFileFilter(t *testing.T) {
 	addFunctionSymbol(t, file2, "helper")
 
 	// Create output directory
-	outDir, err := ioutil.TempDir("", "saver-filter-test-*")
+	outDir, err := os.MkdirTemp("", "saver-filter-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create output directory: %v", err)
 	}
-	defer os.RemoveAll(outDir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(outDir); err != nil {
+			t.Logf("Failed to remove output directory: %v", err)
+		}
+	})
 
 	// Create saver with filter that only includes main.go
 	saver := NewGoModuleSaver()

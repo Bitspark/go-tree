@@ -53,7 +53,7 @@ var htmlCmd = &cobra.Command{
 		}
 
 		// Ensure the output directory exists
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
+		if err := os.MkdirAll(outputDir, 0750); err != nil {
 			return fmt.Errorf("failed to create output directory: %w", err)
 		}
 
@@ -65,7 +65,7 @@ var htmlCmd = &cobra.Command{
 
 		// Write to index.html in the output directory
 		indexPath := filepath.Join(outputDir, "index.html")
-		if err := os.WriteFile(indexPath, content, 0644); err != nil {
+		if err := os.WriteFile(indexPath, content, 0600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
 

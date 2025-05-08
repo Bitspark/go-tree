@@ -202,7 +202,7 @@ func TestMockGeneratorCalls(t *testing.T) {
 
 	// Test GenerateMock
 	iface := createSimpleSymbol("Handler", typesys.KindInterface, "testpkg")
-	mockResult, err := mockGen.GenerateMock(iface)
+	mockResult, _ := mockGen.GenerateMock(iface)
 
 	if !mockGen.GenerateMockCalled {
 		t.Error("GenerateMock call not recorded")
@@ -218,7 +218,7 @@ func TestMockGeneratorCalls(t *testing.T) {
 
 	// Test GenerateTestData
 	typ := createSimpleSymbol("User", typesys.KindStruct, "testpkg")
-	dataResult, err := mockGen.GenerateTestData(typ)
+	dataResult, _ := mockGen.GenerateTestData(typ)
 
 	if !mockGen.GenerateTestDataCalled {
 		t.Error("GenerateTestData call not recorded")

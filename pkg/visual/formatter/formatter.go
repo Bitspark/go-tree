@@ -69,6 +69,9 @@ func (f *BaseFormatter) Format(mod *typesys.Module, opts *FormatOptions) (string
 		opts = f.options
 	}
 
+	// Store the effective options for use by the visitor
+	f.options = opts
+
 	// Walk the module with our visitor
 	if err := typesys.Walk(f.visitor, mod); err != nil {
 		return "", err

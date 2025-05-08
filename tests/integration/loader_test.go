@@ -114,7 +114,9 @@ func setupSimpleTestModule(t *testing.T) (string, func()) {
 
 	// Create cleanup function
 	cleanup := func() {
-		os.RemoveAll(tempDir)
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to clean up temp directory: %v", err)
+		}
 	}
 
 	// Create go.mod file

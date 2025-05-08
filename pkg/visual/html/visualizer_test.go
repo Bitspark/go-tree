@@ -88,7 +88,7 @@ func TestVisualize(t *testing.T) {
 		t.Fatalf("Visualize returned error: %v", err)
 	}
 
-	if result == nil || len(result) == 0 {
+	if len(result) == 0 {
 		t.Fatal("Visualize returned empty result")
 	}
 

@@ -57,11 +57,7 @@ func (idx *Indexer) UpdateIndex(changedFiles []string) error {
 
 	// Find all affected files (files that depend on the changed files)
 	affectedFiles := make([]string, 0, len(changedFiles))
-	for _, file := range changedFiles {
-		affectedFiles = append(affectedFiles, file)
-		// We should also add files that depend on this file, but for now we'll
-		// just use the changed files directly
-	}
+	affectedFiles = append(affectedFiles, changedFiles...)
 
 	// Reload the module content from disk for the affected files
 	reloadError := idx.reloadFilesFromDisk(affectedFiles)
@@ -130,7 +126,23 @@ func (idx *Indexer) reloadFilesFromDisk(changedFiles []string) error {
 			packagesToUpdate[foundPkg.ImportPath] = true
 
 			// Actually reload the file content from disk
-			fileContent, err := os.ReadFile(filePath)
+			// Validate filePath to prevent path traversal
+			cleanedPath, err := filepath.Abs(filePath)
+			if err != nil {
+				return fmt.Errorf("failed to get absolute path for %s: %w", filePath, err)
+			}
+
+			// Ensure file is within module directory
+			moduleDir, err := filepath.Abs(idx.Module.Dir)
+			if err != nil {
+				return fmt.Errorf("failed to get absolute path for module directory: %w", err)
+			}
+
+			if !strings.HasPrefix(cleanedPath, moduleDir) {
+				return fmt.Errorf("file path %s is outside of module directory %s", cleanedPath, moduleDir)
+			}
+
+			fileContent, err := os.ReadFile(filePath) // #nosec G304 - Path is validated above to be within module directory
 			if err != nil {
 				return fmt.Errorf("failed to read file %s: %w", filePath, err)
 			}
@@ -277,13 +289,6 @@ func (idx *Indexer) reloadFilesFromDisk(changedFiles []string) error {
 	}
 
 	return nil
-}
-
-// flagFileForUpdate marks a file as needing update
-// This is a helper for the reloadFilesFromDisk method
-func (idx *Indexer) flagFileForUpdate(file *typesys.File) {
-	// In a real implementation, we'd add metadata to track file updates
-	// For now, this is just a placeholder
 }
 
 // FindUsages finds all usages (references) of a symbol.

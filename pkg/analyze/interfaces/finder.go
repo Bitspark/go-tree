@@ -446,7 +446,7 @@ func (f *InterfaceFinder) getEligibleTypes(opts *FindOptions) []*typesys.Symbol 
 
 	// Create a package filter if specified
 	pkgFilter := make(map[string]bool)
-	if opts.Packages != nil && len(opts.Packages) > 0 {
+	if len(opts.Packages) > 0 {
 		for _, pkgPath := range opts.Packages {
 			pkgFilter[pkgPath] = true
 		}

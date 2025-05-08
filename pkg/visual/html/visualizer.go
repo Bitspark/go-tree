@@ -77,7 +77,9 @@ func (v *HTMLVisualizer) Visualize(module *typesys.Module, opts *VisualizationOp
 		"ModulePath":   module.Path,
 		"GoVersion":    module.GoVersion,
 		"PackageCount": len(module.Packages),
-		"Content":      template.HTML(content),
+		// Using template.HTML is safe here as content is generated internally by our HTMLVisitor
+		// and is not influenced by external user input
+		"Content": template.HTML(content), // #nosec G203 - Content is generated internally from type system, not from user input
 	}
 
 	// Execute the template

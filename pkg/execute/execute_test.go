@@ -278,7 +278,11 @@ func TestGoExecutor_Execute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Errorf("Failed to clean up temp dir: %v", err)
+		}
+	})
 
 	// Create a simple Go module
 	err = os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte("module example.com/test\n\ngo 1.16\n"), 0644)
@@ -340,7 +344,11 @@ func TestGoExecutor_ExecuteWithEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Errorf("Failed to clean up temp dir: %v", err)
+		}
+	})
 
 	// Create a mock module
 	module := &typesys.Module{
@@ -398,7 +406,11 @@ func TestGoExecutor_ExecuteTest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Errorf("Failed to clean up temp dir: %v", err)
+		}
+	})
 
 	// Create a simple Go module
 	err = os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte("module example.com/test\n\ngo 1.16\n"), 0644)
@@ -482,7 +494,7 @@ func TestAddFail(t *testing.T) {
 	executor := NewGoExecutor()
 
 	// Test running a specific test
-	result, err := executor.ExecuteTest(module, "./pkg", "-v", "-run=TestAdd$")
+	result, _ := executor.ExecuteTest(module, "./pkg", "-v", "-run=TestAdd$")
 	// We don't check err because some tests might fail, which returns an error
 
 	if !strings.Contains(result.Output, "TestAdd") {
@@ -495,14 +507,14 @@ func TestAddFail(t *testing.T) {
 	}
 
 	// Test test counting with verbose output
-	result, err = executor.ExecuteTest(module, "./pkg", "-v", "-run=TestAdd$")
+	result, _ = executor.ExecuteTest(module, "./pkg", "-v", "-run=TestAdd$")
 	if result.Passed != 1 || result.Failed != 0 {
 		t.Errorf("Expected 1 passed test and 0 failed tests, got %d passed and %d failed",
 			result.Passed, result.Failed)
 	}
 
 	// Test failing test
-	result, err = executor.ExecuteTest(module, "./pkg", "-v", "-run=TestAddFail$")
+	result, _ = executor.ExecuteTest(module, "./pkg", "-v", "-run=TestAddFail$")
 	if result.Passed != 0 || result.Failed != 1 {
 		t.Errorf("Expected 0 passed tests and 1 failed test, got %d passed and %d failed",
 			result.Passed, result.Failed)
@@ -630,9 +642,10 @@ func TestFindTestedSymbols(t *testing.T) {
 	foundFunc2 := false
 
 	for _, sym := range symbols {
-		if sym.Name == "Func1" {
+		switch sym.Name {
+		case "Func1":
 			foundFunc1 = true
-		} else if sym.Name == "Func2" {
+		case "Func2":
 			foundFunc2 = true
 		}
 	}
@@ -734,7 +747,11 @@ func TestTypeAwareExecution(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Errorf("Failed to clean up temp dir: %v", err)
+		}
+	})
 
 	// Create a simple Go module
 	err = os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte("module example.com/test\n\ngo 1.16\n"), 0644)
@@ -808,7 +825,7 @@ func (p Person) Greet() string {
 
 	// This will likely fail since our test symbol doesn't have proper type information,
 	// but we can at least test that the function exists and is called
-	code, err := generator.GenerateExecWrapper(funcSymbol)
+	code, _ := generator.GenerateExecWrapper(funcSymbol)
 	// We don't assert on the error here since it's expected to fail without proper type info
 
 	// Just verify we got something back
@@ -925,7 +942,11 @@ func TestGoExecutor_CompleteApplication(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Errorf("Failed to clean up temp dir: %v", err)
+		}
+	})
 
 	// Create a simple Go application
 	err = os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte("module example.com/calculator\n\ngo 1.16\n"), 0644)
@@ -1081,14 +1102,18 @@ func main() {
 	}
 }
 
-// TestGoExecutor_ExecuteTestComprehensive provides a comprehensive test for the ExecuteTest method
+// TestGoExecutor_ExecuteTestComprehensive tests comprehensive test execution features
 func TestGoExecutor_ExecuteTestComprehensive(t *testing.T) {
 	// Create a test project directory
-	tempDir, err := os.MkdirTemp("", "goexecutor-test-suite-*")
+	tempDir, err := os.MkdirTemp("", "goexecutor-comprehensive-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Errorf("Failed to clean up temp dir: %v", err)
+		}
+	})
 
 	// Create a simple Go project with tests
 	err = os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte("module example.com/testproject\n\ngo 1.16\n"), 0644)
@@ -1261,7 +1286,7 @@ func TestIntentionallyFailing(t *testing.T) {
 	executor := NewGoExecutor()
 
 	// Test running all tests
-	result, err := executor.ExecuteTest(module, "./pkg", "-v")
+	result, _ := executor.ExecuteTest(module, "./pkg", "-v")
 	// We expect an error since one test is designed to fail
 
 	// Verify test counts

@@ -55,7 +55,7 @@ var markdownCmd = &cobra.Command{
 
 		// Ensure the output directory exists
 		outputDir := filepath.Dir(outputPath)
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
+		if err := os.MkdirAll(outputDir, 0750); err != nil {
 			return fmt.Errorf("failed to create output directory: %w", err)
 		}
 
@@ -66,7 +66,7 @@ var markdownCmd = &cobra.Command{
 		}
 
 		// Write to the output file
-		if err := os.WriteFile(outputPath, content, 0644); err != nil {
+		if err := os.WriteFile(outputPath, content, 0600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
 

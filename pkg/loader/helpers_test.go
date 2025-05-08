@@ -192,7 +192,7 @@ func TestProcessSafely(t *testing.T) {
 	// Test function that panics
 	err = processSafely(file, func() error {
 		panic("test panic")
-		return nil
+
 	}, nil)
 
 	if err == nil {

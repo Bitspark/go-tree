@@ -185,7 +185,11 @@ func TestMockFileOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Errorf("Failed to remove temp directory: %v", err)
+		}
+	})
 
 	// Create a test file
 	testFile := filepath.Join(tempDir, "test.go")
@@ -273,41 +277,6 @@ func loadTestModuleFromPath(t *testing.T) (*typesys.Module, error) {
 		IncludeTests:   true,
 		IncludePrivate: true,
 	})
-}
-
-// createTestModule creates a simple module for testing the indexer
-func createTestModule() *typesys.Module {
-	// Create a simple module structure
-	mod := typesys.NewModule("test-module")
-
-	// Add a package
-	pkg := typesys.NewPackage(mod, "testpkg", "bitspark.dev/go-tree/testpkg")
-
-	// Add a file to the package
-	file := typesys.NewFile("main.go", pkg)
-
-	// Add some symbols to the file
-	typeSymbol := typesys.NewSymbol("Person", typesys.KindType)
-	typeSymbol.File = file
-	file.AddSymbol(typeSymbol)
-	pkg.AddSymbol(typeSymbol)
-
-	funcSymbol := typesys.NewSymbol("NewPerson", typesys.KindFunction)
-	funcSymbol.File = file
-	file.AddSymbol(funcSymbol)
-	pkg.AddSymbol(funcSymbol)
-
-	methodSymbol := typesys.NewSymbol("GetName", typesys.KindMethod)
-	methodSymbol.File = file
-	methodSymbol.Parent = typeSymbol // Method belongs to Person type
-	file.AddSymbol(methodSymbol)
-	pkg.AddSymbol(methodSymbol)
-
-	// Add references
-	ref := typesys.NewReference(funcSymbol, file, 0, 0)
-	funcSymbol.AddReference(ref)
-
-	return mod
 }
 
 func TestNewIndexer(t *testing.T) {
@@ -491,7 +460,11 @@ func TestUpdateIndex(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Errorf("Failed to remove temp directory: %v", err)
+		}
+	})
 
 	// Create a simple Go module structure
 	err = os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte("module example.com/indextest\n\ngo 1.18\n"), 0644)

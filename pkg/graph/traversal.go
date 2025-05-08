@@ -250,14 +250,6 @@ func getNeighbors(g *DirectedGraph, node *Node, direction TraversalDirection) []
 	return neighbors
 }
 
-// skipNode checks if a node should be skipped based on options.
-func skipNode(node *Node, opts *TraversalOptions) bool {
-	if opts.SkipFunc != nil {
-		return opts.SkipFunc(node)
-	}
-	return false
-}
-
 // CollectNodes traverses the graph and collects all visited nodes.
 func CollectNodes(g *DirectedGraph, startID interface{}, opts *TraversalOptions) []*Node {
 	if g == nil {

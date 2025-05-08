@@ -204,7 +204,7 @@ func main() {
 	}
 
 	// Verify it swapped them correctly - length should still be positive
-	if posInfo.Length <= 0 {
+	if posInfo == nil || posInfo.Length <= 0 {
 		t.Errorf("Position length should be positive for swapped positions, got %d", posInfo.Length)
 	}
 }

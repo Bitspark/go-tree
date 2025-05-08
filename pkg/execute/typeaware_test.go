@@ -175,7 +175,11 @@ func TestNewExecutionContextImpl(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewExecutionContextImpl returned error: %v", err)
 	}
-	defer ctx.Close() // Ensure cleanup
+	t.Cleanup(func() {
+		if err := ctx.Close(); err != nil {
+			t.Errorf("Failed to close execution context: %v", err)
+		}
+	})
 
 	// Verify the context was created correctly
 	if ctx == nil {
@@ -225,7 +229,11 @@ func TestExecutionContextImpl_Execute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create execution context: %v", err)
 	}
-	defer ctx.Close() // Ensure cleanup
+	t.Cleanup(func() {
+		if err := ctx.Close(); err != nil {
+			t.Errorf("Failed to close execution context: %v", err)
+		}
+	})
 
 	// Test executing a simple program
 	code := `
@@ -274,7 +282,11 @@ func TestExecutionContextImpl_ExecuteInline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create execution context: %v", err)
 	}
-	defer ctx.Close() // Ensure cleanup
+	t.Cleanup(func() {
+		if err := ctx.Close(); err != nil {
+			t.Errorf("Failed to close execution context: %v", err)
+		}
+	})
 
 	// Test executing inline code - use a simple fmt-only example that doesn't need the module
 	code := `fmt.Println("Hello inline")`
@@ -335,7 +347,9 @@ func TestExecutionContextImpl_Close(t *testing.T) {
 	if _, err := os.Stat(tempDir); !os.IsNotExist(err) {
 		t.Errorf("TempDir %s still exists after Close", tempDir)
 		// Clean up in case the test fails
-		os.RemoveAll(tempDir)
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to clean up temp dir: %v", err)
+		}
 	}
 }
 
@@ -428,7 +442,11 @@ func TestTypeAwareExecution_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	t.Cleanup(func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Errorf("Failed to clean up temp dir: %v", err)
+		}
+	})
 
 	// Create a simple Go module
 	err = os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte("module example.com/typeaware\n\ngo 1.16\n"), 0644)
@@ -496,7 +514,11 @@ func Multiply(a, b int) int {
 	if err != nil {
 		t.Fatalf("Failed to create execution context: %v", err)
 	}
-	defer ctx.Close()
+	t.Cleanup(func() {
+		if err := ctx.Close(); err != nil {
+			t.Errorf("Failed to close execution context: %v", err)
+		}
+	})
 
 	// Execute code that uses the module
 	code := `

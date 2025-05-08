@@ -6,10 +6,8 @@ package typesys
 import (
 	"fmt"
 	"go/token"
-	"go/types"
 
 	"golang.org/x/tools/go/packages"
-	"golang.org/x/tools/go/types/typeutil"
 )
 
 // Module represents a complete Go module with full type information.
@@ -22,10 +20,8 @@ type Module struct {
 	Packages  map[string]*Package // Packages by import path
 
 	// Type system internals
-	FileSet   *token.FileSet               // FileSet for position information
-	pkgCache  map[string]*packages.Package // Cache of loaded packages
-	typeInfo  *types.Info                  // Type information
-	typesMaps *typeutil.MethodSetCache     // Cache for method sets
+	FileSet  *token.FileSet               // FileSet for position information
+	pkgCache map[string]*packages.Package // Cache of loaded packages
 
 	// Dependency tracking
 	dependencies map[string][]string // Map from file to files it imports

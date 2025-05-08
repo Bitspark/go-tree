@@ -16,7 +16,7 @@ func TestNewAnalyzer(t *testing.T) {
 	// Create an analyzer
 	analyzer := NewAnalyzer(mod)
 	if analyzer == nil {
-		t.Error("NewAnalyzer returned nil")
+		t.Fatal("NewAnalyzer returned nil")
 	}
 
 	if analyzer.Module != mod {

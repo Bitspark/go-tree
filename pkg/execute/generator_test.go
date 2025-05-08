@@ -25,7 +25,7 @@ func mockFunction(t *testing.T, name string, params int, returns int) *typesys.S
 	// Create a simple mock function type
 	paramVars := createTupleType(params)
 	resultVars := createTupleType(returns)
-	signature := types.NewSignature(nil, paramVars, resultVars, false)
+	signature := types.NewSignatureType(nil, nil, nil, paramVars, resultVars, false)
 
 	objFunc := types.NewFunc(0, nil, name, signature)
 	sym.TypeObj = objFunc

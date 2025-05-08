@@ -55,7 +55,7 @@ func (s *GoModuleSaver) SaveToWithOptions(module *typesys.Module, dir string, op
 	}
 
 	// Create the directory if it doesn't exist
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
 
@@ -85,7 +85,7 @@ func (s *GoModuleSaver) saveGoMod(module *typesys.Module, dir string) error {
 
 	// Write the go.mod file
 	goModPath := filepath.Join(dir, "go.mod")
-	return os.WriteFile(goModPath, []byte(content), 0644)
+	return os.WriteFile(goModPath, []byte(content), 0600)
 }
 
 // savePackage saves a package to disk
@@ -95,7 +95,7 @@ func (s *GoModuleSaver) savePackage(pkg *typesys.Package, baseDir, importPath, m
 	pkgDir := filepath.Join(baseDir, relPath)
 
 	// Create package directory if it doesn't exist
-	if err := os.MkdirAll(pkgDir, 0755); err != nil {
+	if err := os.MkdirAll(pkgDir, 0750); err != nil {
 		return fmt.Errorf("failed to create package directory %s: %w", pkgDir, err)
 	}
 
@@ -127,7 +127,7 @@ func (s *GoModuleSaver) savePackage(pkg *typesys.Package, baseDir, importPath, m
 		}
 
 		// Write file
-		if err := os.WriteFile(filePath, content, 0644); err != nil {
+		if err := os.WriteFile(filePath, content, 0600); err != nil {
 			return fmt.Errorf("failed to write file %s: %w", filePath, err)
 		}
 	}

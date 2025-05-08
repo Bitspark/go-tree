@@ -2,7 +2,6 @@
 package integration
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -62,11 +61,15 @@ func TestLoaderSaverRoundTrip(t *testing.T) {
 	mainFile.Symbols = append(mainFile.Symbols, newFunc)
 
 	// Create a directory to save the modified module
-	outDir, err := ioutil.TempDir("", "integration-savedir-*")
+	outDir, err := os.MkdirTemp("", "integration-savedir-*")
 	if err != nil {
 		t.Fatalf("Failed to create output directory: %v", err)
 	}
-	defer os.RemoveAll(outDir)
+	defer func() {
+		if err := os.RemoveAll(outDir); err != nil {
+			t.Logf("Failed to clean up output directory: %v", err)
+		}
+	}()
 
 	// Save the modified module
 	moduleSaver := saver.NewGoModuleSaver()
@@ -77,7 +80,7 @@ func TestLoaderSaverRoundTrip(t *testing.T) {
 
 	// Verify the saved file contains our changes
 	mainPath := filepath.Join(outDir, "main.go")
-	content, err := ioutil.ReadFile(mainPath)
+	content, err := os.ReadFile(mainPath)
 	if err != nil {
 		t.Fatalf("Failed to read saved main.go: %v", err)
 	}
@@ -165,11 +168,15 @@ func TestModifyAndSave(t *testing.T) {
 	mainPkg.Files[newFilePath] = newFile
 
 	// Create an output directory
-	outDir, err := ioutil.TempDir("", "integration-modifysave-*")
+	outDir, err := os.MkdirTemp("", "integration-modifysave-*")
 	if err != nil {
 		t.Fatalf("Failed to create output directory: %v", err)
 	}
-	defer os.RemoveAll(outDir)
+	defer func() {
+		if err := os.RemoveAll(outDir); err != nil {
+			t.Logf("Failed to clean up output directory: %v", err)
+		}
+	}()
 
 	// Save the modified module
 	moduleSaver := saver.NewGoModuleSaver()
@@ -185,7 +192,7 @@ func TestModifyAndSave(t *testing.T) {
 	}
 
 	// Check the contents of the new file
-	content, err := ioutil.ReadFile(newFileSavedPath)
+	content, err := os.ReadFile(newFileSavedPath)
 	if err != nil {
 		t.Fatalf("Failed to read new file: %v", err)
 	}
@@ -205,14 +212,16 @@ func setupTestModule(t *testing.T) (string, func()) {
 	t.Helper()
 
 	// Create a temporary directory
-	tempDir, err := ioutil.TempDir("", "integration-test-*")
+	tempDir, err := os.MkdirTemp("", "integration-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
 
 	// Create cleanup function
 	cleanup := func() {
-		os.RemoveAll(tempDir)
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to clean up temp directory: %v", err)
+		}
 	}
 
 	// Create go.mod file
@@ -220,7 +229,7 @@ func setupTestModule(t *testing.T) (string, func()) {
 
 go 1.18
 `
-	err = ioutil.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(goModContent), 0644)
+	err = os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(goModContent), 0644)
 	if err != nil {
 		cleanup()
 		t.Fatalf("Failed to write go.mod: %v", err)
@@ -240,7 +249,7 @@ type ExampleType struct {
 	ID   int
 }
 `
-	err = ioutil.WriteFile(filepath.Join(tempDir, "main.go"), []byte(mainContent), 0644)
+	err = os.WriteFile(filepath.Join(tempDir, "main.go"), []byte(mainContent), 0644)
 	if err != nil {
 		cleanup()
 		t.Fatalf("Failed to write main.go: %v", err)

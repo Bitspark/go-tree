@@ -56,28 +56,16 @@ func (r *Runner) RunTests(mod *typesys.Module, pkgPath string, opts *common.RunO
 	}
 
 	// Execute tests
-	execResult, err := r.Executor.ExecuteTest(mod, pkgPath, testFlags...)
-	if err != nil {
-		// Don't return error here, as it might just indicate test failures
-		// Create a result with the error
-		return &common.TestResult{
-			Package: pkgPath,
-			Tests:   []string{},
-			Passed:  0,
-			Failed:  0,
-			Output:  "",
-			Error:   err,
-		}, nil
-	}
+	execResult, execErr := r.Executor.ExecuteTest(mod, pkgPath, testFlags...)
 
-	// Convert execute.TestResult to TestResult
+	// Create result regardless of error (error might just indicate test failures)
 	result := &common.TestResult{
-		Package:       execResult.Package,
+		Package:       pkgPath,
 		Tests:         execResult.Tests,
 		Passed:        execResult.Passed,
 		Failed:        execResult.Failed,
 		Output:        execResult.Output,
-		Error:         execResult.Error,
+		Error:         execErr,
 		TestedSymbols: execResult.TestedSymbols,
 		Coverage:      0.0, // We'll calculate this if coverage analysis is requested
 	}
@@ -109,7 +97,8 @@ func (r *Runner) AnalyzeCoverage(mod *typesys.Module, pkgPath string) (*common.C
 	execResult, err := r.Executor.ExecuteTest(mod, pkgPath, testFlags...)
 	if err != nil {
 		// Don't fail completely if tests failed, we might still have partial coverage
-		// The error is already in the result
+		fmt.Printf("Warning: tests failed but continuing with coverage analysis: %v\n", err)
+		// Still proceed with the coverage analysis using the partial results
 	}
 
 	// Parse coverage output

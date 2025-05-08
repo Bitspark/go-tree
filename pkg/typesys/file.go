@@ -3,6 +3,7 @@ package typesys
 import (
 	"go/ast"
 	"go/token"
+	"log"
 	"path/filepath"
 )
 
@@ -99,8 +100,7 @@ func (f *File) GetPositionInfo(start, end token.Pos) *PositionInfo {
 	if filepath.Base(startPos.Filename) != filepath.Base(expectedName) &&
 		startPos.Filename != expectedName &&
 		filepath.Clean(startPos.Filename) != filepath.Clean(expectedName) {
-		// Log this anomaly if debug logging were available
-		// fmt.Printf("Warning: Position filename %s doesn't match file %s\n", startPos.Filename, expectedName)
+		log.Printf("Warning: Position filename %s doesn't match file %s", startPos.Filename, expectedName)
 	}
 
 	// Calculate length safely

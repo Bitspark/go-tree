@@ -2,10 +2,11 @@
 package cmd
 
 import (
-	"bitspark.dev/go-tree/pkg/loader"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"bitspark.dev/go-tree/pkg/loader"
 
 	"bitspark.dev/go-tree/pkg/typesys"
 	"bitspark.dev/go-tree/pkg/visual/html"
@@ -100,12 +101,12 @@ func Visualize(opts *VisualizeOptions) error {
 	} else {
 		// Ensure output directory exists
 		outputDir := filepath.Dir(opts.OutputFile)
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
+		if err := os.MkdirAll(outputDir, 0750); err != nil {
 			return fmt.Errorf("failed to create output directory: %w", err)
 		}
 
 		// Write to the output file
-		if err := os.WriteFile(opts.OutputFile, output, 0644); err != nil {
+		if err := os.WriteFile(opts.OutputFile, output, 0600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
 

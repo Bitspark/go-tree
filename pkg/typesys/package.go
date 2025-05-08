@@ -1,7 +1,6 @@
 package typesys
 
 import (
-	"go/ast"
 	"go/token"
 	"go/types"
 )
@@ -23,7 +22,6 @@ type Package struct {
 	// Type information
 	TypesPackage *types.Package // Go's type representation
 	TypesInfo    *types.Info    // Type information
-	astPackage   *ast.Package   // AST package
 }
 
 // Import represents an import in a Go file

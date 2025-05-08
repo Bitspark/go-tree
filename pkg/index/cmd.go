@@ -113,10 +113,16 @@ func (ctx *CommandContext) FindUsages(name string, file string, line, column int
 
 	// Create a tab writer for formatting
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer w.Flush()
+	defer func() {
+		if err := w.Flush(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error flushing writer: %v\n", err)
+		}
+	}()
 
 	// Print header
-	fmt.Fprintln(w, "File\tLine\tColumn\tContext")
+	if _, err := fmt.Fprintln(w, "File\tLine\tColumn\tContext"); err != nil {
+		return fmt.Errorf("failed to write header: %w", err)
+	}
 
 	// Print usages
 	for _, ref := range references {
@@ -127,9 +133,13 @@ func (ctx *CommandContext) FindUsages(name string, file string, line, column int
 
 		pos := ref.GetPosition()
 		if pos != nil {
-			fmt.Fprintf(w, "%s\t%d\t%d\t%s\n", ref.File.Path, pos.LineStart, pos.ColumnStart, context)
+			if _, err := fmt.Fprintf(w, "%s\t%d\t%d\t%s\n", ref.File.Path, pos.LineStart, pos.ColumnStart, context); err != nil {
+				return fmt.Errorf("failed to write reference: %w", err)
+			}
 		} else {
-			fmt.Fprintf(w, "%s\t-\t-\t%s\n", ref.File.Path, context)
+			if _, err := fmt.Fprintf(w, "%s\t-\t-\t%s\n", ref.File.Path, context); err != nil {
+				return fmt.Errorf("failed to write reference: %w", err)
+			}
 		}
 	}
 
@@ -166,10 +176,16 @@ func (ctx *CommandContext) SearchSymbols(pattern string, kindFilter string) erro
 
 	// Create a tab writer for formatting
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer w.Flush()
+	defer func() {
+		if err := w.Flush(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error flushing writer: %v\n", err)
+		}
+	}()
 
 	// Print header
-	fmt.Fprintln(w, "Name\tKind\tPackage\tFile\tLine")
+	if _, err := fmt.Fprintln(w, "Name\tKind\tPackage\tFile\tLine"); err != nil {
+		return fmt.Errorf("failed to write header: %w", err)
+	}
 
 	// Print symbols
 	for _, sym := range symbols {
@@ -181,7 +197,9 @@ func (ctx *CommandContext) SearchSymbols(pattern string, kindFilter string) erro
 			location = "-"
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", sym.Name, sym.Kind, sym.Package.Name, sym.File.Path, location)
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", sym.Name, sym.Kind, sym.Package.Name, sym.File.Path, location); err != nil {
+			return fmt.Errorf("failed to write symbol: %w", err)
+		}
 	}
 
 	return nil
@@ -211,10 +229,16 @@ func (ctx *CommandContext) ListFileSymbols(filePath string) error {
 
 	// Create a tab writer for formatting
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer w.Flush()
+	defer func() {
+		if err := w.Flush(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error flushing writer: %v\n", err)
+		}
+	}()
 
 	// Print header
-	fmt.Fprintln(w, "Name\tKind\tLine\tColumn")
+	if _, err := fmt.Fprintln(w, "Name\tKind\tLine\tColumn"); err != nil {
+		return fmt.Errorf("failed to write header: %w", err)
+	}
 
 	// Process kinds in a specific order
 	kindOrder := []typesys.SymbolKind{
@@ -247,7 +271,9 @@ func (ctx *CommandContext) ListFileSymbols(filePath string) error {
 				column = "-"
 			}
 
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", sym.Name, sym.Kind, line, column)
+			if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", sym.Name, sym.Kind, line, column); err != nil {
+				return fmt.Errorf("failed to write symbol: %w", err)
+			}
 		}
 	}
 

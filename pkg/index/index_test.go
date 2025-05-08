@@ -608,7 +608,9 @@ func TestCommandFunctions(t *testing.T) {
 	}
 
 	// Restore stdout
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Errorf("Failed to close pipe writer: %v", err)
+	}
 	outBytes, _ := io.ReadAll(r)
 	os.Stdout = oldStdout
 
@@ -692,9 +694,10 @@ func TestIndexSimpleBuild(t *testing.T) {
 func TestIndexSearch(t *testing.T) {
 	// Create a simple mock search function
 	mockSearch := func(query string) []string {
-		if query == "Index" {
+		switch query {
+		case "Index":
 			return []string{"Index", "Indexer", "IndexSearch"}
-		} else if query == "Find" {
+		case "Find":
 			return []string{"FindSymbol", "FindByName"}
 		}
 		return nil
@@ -731,7 +734,11 @@ func TestIndexUpdate(t *testing.T) {
 	filename := tempFile.Name()
 
 	// Clean up after the test
-	defer os.Remove(filename)
+	defer func() {
+		if err := os.Remove(filename); err != nil {
+			t.Logf("Failed to remove temporary file: %v", err)
+		}
+	}()
 
 	// Write some Go code to the file
 	initialContent := []byte(`package example
@@ -742,9 +749,12 @@ type TestStruct struct {
 `)
 
 	_, err = tempFile.Write(initialContent)
-	tempFile.Close()
 	if err != nil {
 		t.Fatalf("Failed to write to temp file: %v", err)
+	}
+
+	if err := tempFile.Close(); err != nil {
+		t.Fatalf("Failed to close temp file: %v", err)
 	}
 
 	// Verify the file was written

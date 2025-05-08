@@ -1,6 +1,7 @@
 package loader
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/token"
@@ -38,7 +39,7 @@ func processSafely(file *typesys.File, fn func() error, opts *typesys.LoadOption
 		defer func() {
 			if r := recover(); r != nil {
 				errMsg := fmt.Sprintf("Panic when processing file %s: %v", file.Path, r)
-				err = fmt.Errorf(errMsg)
+				err = errors.New(errMsg)
 				if opts != nil && opts.Trace {
 					fmt.Printf("ERROR: %s\n", errMsg)
 				}

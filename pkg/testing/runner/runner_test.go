@@ -47,7 +47,7 @@ func TestNewRunner(t *testing.T) {
 	// Test with nil executor
 	runner := NewRunner(nil)
 	if runner == nil {
-		t.Error("NewRunner returned nil")
+		t.Fatal("NewRunner returned nil")
 	}
 	if runner.Executor == nil {
 		t.Error("NewRunner should create default executor when nil is provided")
@@ -65,6 +65,12 @@ func TestRunTests(t *testing.T) {
 	// Test with nil module
 	mockExecutor := &MockExecutor{}
 	runner := NewRunner(mockExecutor)
+
+	// Verify runner exists before using it
+	if runner == nil {
+		t.Fatal("NewRunner returned nil")
+	}
+
 	result, err := runner.RunTests(nil, "test/pkg", nil)
 	if err == nil {
 		t.Error("RunTests should return error for nil module")
@@ -85,6 +91,15 @@ func TestRunTests(t *testing.T) {
 	if err != nil {
 		t.Errorf("RunTests returned error: %v", err)
 	}
+
+	// Verify results match expectations
+	if result == nil {
+		t.Fatal("RunTests returned nil result")
+	}
+	if result.Package != "./..." {
+		t.Errorf("Expected package path './...', got '%s'", result.Package)
+	}
+
 	if mockExecutor.PkgPath != "./..." {
 		t.Errorf("Expected package path './...', got '%s'", mockExecutor.PkgPath)
 	}
@@ -96,13 +111,20 @@ func TestRunTests(t *testing.T) {
 		Parallel: true,
 		Tests:    []string{"TestFunc1", "TestFunc2"},
 	}
-	_, _ = runner.RunTests(mod, "test/pkg", opts)
+	result, _ = runner.RunTests(mod, "test/pkg", opts)
+
+	// Verify results
+	if result == nil {
+		t.Fatal("RunTests returned nil result")
+	}
+
 	if !mockExecutor.ExecuteTestCalled {
 		t.Error("Executor.ExecuteTest not called")
 	}
 	if mockExecutor.PkgPath != "test/pkg" {
 		t.Errorf("Expected package path 'test/pkg', got '%s'", mockExecutor.PkgPath)
 	}
+
 	// Check flags
 	hasVerbose := false
 	hasParallel := false
@@ -135,7 +157,7 @@ func TestRunTests(t *testing.T) {
 		t.Errorf("RunTests should not return executor error: %v", err)
 	}
 	if result == nil {
-		t.Error("RunTests should return result even when execution fails")
+		t.Fatal("RunTests should return result even when execution fails")
 	}
 	if result.Error == nil {
 		t.Error("Result should contain executor error")
@@ -167,6 +189,13 @@ func TestAnalyzeCoverage(t *testing.T) {
 	if mockExecutor.PkgPath != "./..." {
 		t.Errorf("Expected package path './...', got '%s'", mockExecutor.PkgPath)
 	}
+	// Verify the result
+	if result == nil {
+		t.Fatal("AnalyzeCoverage should return non-nil result")
+	}
+	if result.Percentage != 75.0 {
+		t.Errorf("Expected coverage percentage to be 75.0, got %f", result.Percentage)
+	}
 
 	// Check coverage flags
 	hasCoverFlag := false
@@ -197,7 +226,7 @@ func TestParseCoverageOutput(t *testing.T) {
 		t.Errorf("ParseCoverageOutput returned error: %v", err)
 	}
 	if result == nil {
-		t.Error("ParseCoverageOutput returned nil result")
+		t.Fatal("ParseCoverageOutput returned nil result")
 	}
 	if result.Percentage != 75.0 {
 		t.Errorf("Expected coverage 75.0%%, got %f%%", result.Percentage)
@@ -210,7 +239,7 @@ func TestParseCoverageOutput(t *testing.T) {
 		t.Errorf("ParseCoverageOutput returned error: %v", err)
 	}
 	if result == nil {
-		t.Error("ParseCoverageOutput returned nil result")
+		t.Fatal("ParseCoverageOutput returned nil result")
 	}
 	if result.Percentage != 0.0 {
 		t.Errorf("Expected coverage 0.0%%, got %f%%", result.Percentage)

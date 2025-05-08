@@ -15,12 +15,18 @@ func extractModuleInfo(module *typesys.Module) error {
 	goModPath := filepath.Join(module.Dir, "go.mod")
 	goModPath = normalizePath(goModPath)
 
+	// Validate that goModPath is within the module directory to prevent path traversal
+	moduleDir := normalizePath(module.Dir)
+	if !strings.HasPrefix(goModPath, moduleDir) {
+		return fmt.Errorf("invalid go.mod path detected")
+	}
+
 	if _, err := os.Stat(goModPath); os.IsNotExist(err) {
 		return fmt.Errorf("go.mod not found in %s", module.Dir)
 	}
 
 	// Read go.mod
-	content, err := os.ReadFile(goModPath)
+	content, err := os.ReadFile(goModPath) // #nosec G304 - Path is validated above to be within module directory
 	if err != nil {
 		return fmt.Errorf("failed to read go.mod: %w", err)
 	}

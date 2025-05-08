@@ -97,7 +97,11 @@ go 1.18
 	}
 
 	// Execute the code
-	cmd := exec.Command("go", "run", mainFile)
+	// Validate mainFile to prevent command injection
+	if strings.ContainsAny(mainFile, "&|;<>()$`\\\"'*?[]#~=%") {
+		return nil, fmt.Errorf("invalid characters in file path")
+	}
+	cmd := exec.Command("go", "run", mainFile) // #nosec G204 - mainFile is validated above and is created within our controlled temp directory
 	cmd.Dir = tempDir
 
 	// Set up sandbox restrictions

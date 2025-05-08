@@ -33,7 +33,7 @@ func TestMapSymbolToObject(t *testing.T) {
 
 	// Create a simple types.Object
 	pkg := types.NewPackage("test/pkg", "pkg")
-	obj := types.NewFunc(token.NoPos, pkg, "TestSymbol", types.NewSignature(nil, nil, nil, false))
+	obj := types.NewFunc(token.NoPos, pkg, "TestSymbol", types.NewSignatureType(nil, nil, nil, nil, nil, false))
 
 	// Map the symbol to the object
 	bridge.MapSymbolToObject(sym, obj)
@@ -77,7 +77,7 @@ func TestGetImplementations(t *testing.T) {
 
 	// Create an interface
 	ifaceName := types.NewTypeName(token.NoPos, pkg, "TestInterface", nil)
-	iface := types.NewInterface(nil, nil).Complete()
+	iface := types.NewInterfaceType(nil, nil).Complete()
 	_ = types.NewNamed(ifaceName, iface, nil) // Create but don't use directly in test
 	ifaceSym := NewSymbol("TestInterface", KindInterface)
 
@@ -110,7 +110,7 @@ func TestGetMethodsOfType(t *testing.T) {
 	typeObj := types.NewNamed(typeName, types.NewStruct(nil, nil), nil)
 
 	// Add a method (in a real scenario, this would be added to typeObj)
-	sig := types.NewSignature(nil, nil, nil, false)
+	sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
 	_ = types.NewFunc(token.NoPos, pkg, "TestMethod", sig) // Create but don't use directly in test
 
 	// Since we can't easily add methods to named types in a unit test,

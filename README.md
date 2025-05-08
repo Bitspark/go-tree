@@ -29,56 +29,6 @@ go get bitspark.dev/go-tree
 go install bitspark.dev/go-tree/cmd/gotree@latest
 ```
 
-## Library Usage
-
-```go
-package main
-
-import (
-	"fmt"
-	"bitspark.dev/go-tree/tree"
-)
-
-func main() {
-	// Parse a Go package
-	pkg, err := tree.Parse("./path/to/package")
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-	
-	// Get package info
-	fmt.Printf("Package: %s\n", pkg.Name())
-	fmt.Printf("Functions: %v\n", pkg.FunctionNames())
-	fmt.Printf("Types: %v\n", pkg.TypeNames())
-	
-	// Format package to a single file
-	output, err := pkg.Format()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-	
-	fmt.Println(output)
-}
-```
-
-## CLI Usage
-
-```bash
-# Parse a package and output to stdout
-gotree -src ./path/to/package
-
-# Parse and save to file with options
-gotree -src ./path/to/package -out-file output.go -include-tests -preserve-formatting
-
-# Generate JSON documentation
-gotree -src ./path/to/package -json -out-dir ./docs/json
-
-# Process multiple packages in batch mode
-gotree -batch "/path/to/pkg1,/path/to/pkg2" -json -out-dir ./docs/json
-```
-
 ## License
 
 MIT
