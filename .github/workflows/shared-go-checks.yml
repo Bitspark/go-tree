@@ -6,7 +6,7 @@ on:
       go-version:
         required: false
         type: string
-        default: '1.21'
+        default: '1.23.1'
       run-race-detector:
         required: false
         type: boolean
@@ -88,7 +88,7 @@ jobs:
       
       - name: Basic format check
         run: |
-          go install golang.org/x/tools/cmd/goimports@latest
+          go install golang.org/x/tools/cmd/goimports@v0.17.0
           goimports -l . | tee goimports.out
           if [ -s goimports.out ]; then
             echo "Code format issues found"
@@ -121,7 +121,7 @@ jobs:
           
       - name: Run govulncheck
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@v1.0.1
           govulncheck ./...
       
       - name: Run trivy for filesystem scanning
