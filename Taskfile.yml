@@ -27,7 +27,6 @@ tasks:
   build:
     desc: Build the CLI binary
     cmds:
-      - mkdir -p bin
       - go build -v -ldflags "-X main.version={{.VERSION}}" -o bin/{{.BINARY_NAME}} {{.MAIN_PKG}}
     sources:
       - "**/*.go"
@@ -44,20 +43,17 @@ tasks:
   build:linux:
     desc: Build for Linux
     cmds:
-      - mkdir -p bin
       - GOOS=linux GOARCH=amd64 go build -v -ldflags "-X main.version={{.VERSION}}" -o bin/{{.BINARY_NAME}}_linux_amd64 {{.MAIN_PKG}}
       - GOOS=linux GOARCH=arm64 go build -v -ldflags "-X main.version={{.VERSION}}" -o bin/{{.BINARY_NAME}}_linux_arm64 {{.MAIN_PKG}}
 
   build:windows:
     desc: Build for Windows
     cmds:
-      - mkdir -p bin
       - GOOS=windows GOARCH=amd64 go build -v -ldflags "-X main.version={{.VERSION}}" -o bin/{{.BINARY_NAME}}_windows_amd64.exe {{.MAIN_PKG}}
 
   build:darwin:
     desc: Build for macOS
     cmds:
-      - mkdir -p bin
       - GOOS=darwin GOARCH=amd64 go build -v -ldflags "-X main.version={{.VERSION}}" -o bin/{{.BINARY_NAME}}_darwin_amd64 {{.MAIN_PKG}}
       - GOOS=darwin GOARCH=arm64 go build -v -ldflags "-X main.version={{.VERSION}}" -o bin/{{.BINARY_NAME}}_darwin_arm64 {{.MAIN_PKG}}
 

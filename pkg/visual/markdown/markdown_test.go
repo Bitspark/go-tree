@@ -4,62 +4,68 @@ import (
 	"strings"
 	"testing"
 
-	"bitspark.dev/go-tree/pkg/core/model"
+	"bitspark.dev/go-tree/pkg/core/module"
 )
 
 // TestMarkdownVisitor tests the Markdown visitor implementation
 func TestMarkdownVisitor(t *testing.T) {
-	// Create a simple package
-	pkg := &model.GoPackage{
-		Name:       "testpkg",
-		PackageDoc: "This is a test package",
-		Types: []model.GoType{
-			{
-				Name: "Person",
-				Kind: "struct",
-				Doc:  "Person represents a person",
-				Code: "type Person struct {\n\tName string\n\tAge int\n}",
-				Fields: []model.GoField{
-					{Name: "Name", Type: "string", Comment: "The person's name"},
-					{Name: "Age", Type: "int", Comment: "The person's age"},
-				},
-			},
-			{
-				Name: "Reader",
-				Kind: "interface",
-				Doc:  "Reader is an interface for reading data",
-				Code: "type Reader interface {\n\tRead(p []byte) (n int, err error)\n}",
-				InterfaceMethods: []model.GoMethod{
-					{Name: "Read", Signature: "(p []byte) (n int, err error)", Comment: "Reads data into p"},
-				},
-			},
-		},
-		Functions: []model.GoFunction{
-			{
-				Name:      "NewPerson",
-				Signature: "(name string, age int) *Person",
-				Doc:       "NewPerson creates a new person",
-				Code:      "func NewPerson(name string, age int) *Person {\n\treturn &Person{Name: name, Age: age}\n}",
-			},
-			{
-				Name:      "Read",
-				Signature: "(p []byte) (n int, err error)",
-				Doc:       "Read implements the Reader interface",
-				Code:      "func (p *Person) Read(p []byte) (n int, err error) {\n\treturn 0, nil\n}",
-				Receiver:  &model.GoReceiver{Name: "p", Type: "*Person"},
-			},
-		},
+	// Create a simple module
+	mod := module.NewModule("test-module", "")
+
+	// Create a package
+	pkg := &module.Package{
+		Name:          "testpkg",
+		ImportPath:    "test/testpkg",
+		Documentation: "This is a test package",
+		Types:         make(map[string]*module.Type),
+		Functions:     make(map[string]*module.Function),
 	}
+	mod.AddPackage(pkg)
+
+	// Create a struct type
+	personType := module.NewType("Person", "struct", true)
+	personType.Doc = "Person represents a person"
+	pkg.Types["Person"] = personType
+
+	// Add fields to the struct
+	personType.AddField("Name", "string", "", false, "The person's name")
+	personType.AddField("Age", "int", "", false, "The person's age")
+
+	// Create an interface type
+	readerType := module.NewType("Reader", "interface", true)
+	readerType.Doc = "Reader is an interface for reading data"
+	pkg.Types["Reader"] = readerType
+
+	// Add a method to the interface
+	readerType.AddInterfaceMethod("Read", "(p []byte) (n int, err error)", false, "Reads data into p")
+
+	// Create a function
+	newPersonFn := module.NewFunction("NewPerson", true, false)
+	newPersonFn.Doc = "NewPerson creates a new person"
+	newPersonFn.Signature = "(name string, age int) *Person"
+	newPersonFn.AddParameter("name", "string", false)
+	newPersonFn.AddParameter("age", "int", false)
+	newPersonFn.AddResult("", "*Person")
+	pkg.Functions["NewPerson"] = newPersonFn
+
+	// Create a method
+	readMethod := personType.AddMethod("Read", "(p []byte) (n int, err error)", false, "Read implements the Reader interface")
 
 	// Create visitor with default options
 	visitor := NewMarkdownVisitor(DefaultOptions())
 
-	// Test visiting the package and all its elements
-	err := visitor.VisitPackage(pkg)
+	// Visit the module and package
+	err := visitor.VisitModule(mod)
+	if err != nil {
+		t.Fatalf("VisitModule failed: %v", err)
+	}
+
+	err = visitor.VisitPackage(pkg)
 	if err != nil {
 		t.Fatalf("VisitPackage failed: %v", err)
 	}
 
+	// Visit types
 	for _, typ := range pkg.Types {
 		err = visitor.VisitType(typ)
 		if err != nil {
@@ -67,11 +73,18 @@ func TestMarkdownVisitor(t *testing.T) {
 		}
 	}
 
+	// Visit functions
 	for _, fn := range pkg.Functions {
 		err = visitor.VisitFunction(fn)
 		if err != nil {
 			t.Fatalf("VisitFunction failed for %s: %v", fn.Name, err)
 		}
+	}
+
+	// Visit method
+	err = visitor.VisitMethod(readMethod)
+	if err != nil {
+		t.Fatalf("VisitMethod failed: %v", err)
 	}
 
 	// Get the result
@@ -82,23 +95,19 @@ func TestMarkdownVisitor(t *testing.T) {
 
 	// Check that the markdown contains expected elements
 	expectedElements := []string{
-		"# Package testpkg",
+		"# Module test-module",
+		"## Package testpkg",
 		"This is a test package",
-		"## Type: Person (struct)",
+		"### Type: Person (struct)",
 		"Person represents a person",
-		"```go",
-		"type Person struct {",
-		"### Fields",
-		"| Name | Type | Tag | Comment |",
-		"| Name | string |",
-		"| Age | int |",
-		"## Type: Reader (interface)",
+		"### Type: Reader (interface)",
 		"Reader is an interface for reading data",
-		"### Methods",
-		"| Name | Signature | Comment |",
-		"| Read | (p []byte) (n int, err error) |",
-		"## Function: NewPerson",
+		"### Function: NewPerson",
 		"NewPerson creates a new person",
+		"**Signature:** `(name string, age int) *Person`",
+		"### Method: (Person) Read",
+		"Read implements the Reader interface",
+		"**Signature:** `(p []byte) (n int, err error)`",
 	}
 
 	for _, expected := range expectedElements {
@@ -110,18 +119,22 @@ func TestMarkdownVisitor(t *testing.T) {
 
 // TestMarkdownGenerator tests the Markdown generator
 func TestMarkdownGenerator(t *testing.T) {
-	// Create a simple package
-	pkg := &model.GoPackage{
-		Name:       "testpkg",
-		PackageDoc: "This is a test package",
-		Types: []model.GoType{
-			{
-				Name: "Person",
-				Kind: "struct",
-				Doc:  "Person represents a person",
-			},
-		},
+	// Create a simple module
+	mod := module.NewModule("test-module", "")
+
+	// Create a package
+	pkg := &module.Package{
+		Name:          "testpkg",
+		ImportPath:    "test/testpkg",
+		Documentation: "This is a test package",
+		Types:         make(map[string]*module.Type),
 	}
+	mod.AddPackage(pkg)
+
+	// Add a type to the package
+	personType := module.NewType("Person", "struct", true)
+	personType.Doc = "Person represents a person"
+	pkg.Types["Person"] = personType
 
 	// Create generator with custom options
 	options := Options{
@@ -132,13 +145,17 @@ func TestMarkdownGenerator(t *testing.T) {
 	generator := NewGenerator(options)
 
 	// Generate markdown
-	markdown, err := generator.Generate(pkg)
+	markdown, err := generator.Generate(mod)
 	if err != nil {
 		t.Fatalf("Failed to generate markdown: %v", err)
 	}
 
 	// Check basic content
-	if !strings.Contains(markdown, "# Package testpkg") {
+	if !strings.Contains(markdown, "# Module test-module") {
+		t.Error("Generated markdown doesn't contain module name")
+	}
+
+	if !strings.Contains(markdown, "## Package testpkg") {
 		t.Error("Generated markdown doesn't contain package name")
 	}
 
@@ -146,21 +163,27 @@ func TestMarkdownGenerator(t *testing.T) {
 		t.Error("Generated markdown doesn't contain package documentation")
 	}
 
-	if !strings.Contains(markdown, "## Type: Person") {
+	if !strings.Contains(markdown, "### Type: Person") {
 		t.Error("Generated markdown doesn't contain type information")
 	}
 
 	// Test with JSON input
 	jsonData := []byte(`{
-		"name": "testpkg",
-		"packageDoc": "This is a test package from JSON",
-		"types": [
-			{
-				"name": "Person",
-				"kind": "struct",
-				"doc": "Person represents a person"
+		"Path": "test-module-json",
+		"Packages": {
+			"testpkg": {
+				"Name": "testpkg",
+				"ImportPath": "test/testpkg",
+				"Documentation": "This is a test package from JSON",
+				"Types": {
+					"Person": {
+						"Name": "Person",
+						"Kind": "struct",
+						"Doc": "Person represents a person"
+					}
+				}
 			}
-		]
+		}
 	}`)
 
 	markdownFromJSON, err := generator.GenerateFromJSON(jsonData)

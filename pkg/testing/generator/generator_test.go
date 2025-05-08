@@ -4,18 +4,80 @@ import (
 	"strings"
 	"testing"
 
-	"bitspark.dev/go-tree/pkg/core/model"
+	"bitspark.dev/go-tree/pkg/core/module"
 )
+
+// createTestFunction creates a module.Function for testing
+func createTestFunction(name string, signature string) *module.Function {
+	fn := module.NewFunction(name, true, false)
+
+	// Very basic signature parsing - this is just for tests
+	if signature == "" || signature == "()" {
+		return fn
+	}
+
+	// Parse parameters
+	paramsEnd := strings.Index(signature, ")")
+	if paramsEnd > 0 {
+		paramsStr := signature[1:paramsEnd]
+		if paramsStr != "" {
+			params := strings.Split(paramsStr, ",")
+			for _, param := range params {
+				param = strings.TrimSpace(param)
+				parts := strings.Split(param, " ")
+
+				name := ""
+				typeName := parts[len(parts)-1]
+				if len(parts) > 1 {
+					name = parts[0]
+				}
+
+				isVariadic := strings.HasPrefix(typeName, "...")
+				if isVariadic {
+					typeName = typeName[3:] // Remove "..."
+				}
+
+				fn.AddParameter(name, typeName, isVariadic)
+			}
+		}
+	}
+
+	// Parse returns
+	if len(signature) > paramsEnd+1 {
+		returnStr := strings.TrimSpace(signature[paramsEnd+1:])
+		if returnStr != "" {
+			// Check if multiple returns in parentheses
+			if strings.HasPrefix(returnStr, "(") && strings.HasSuffix(returnStr, ")") {
+				returnStr = returnStr[1 : len(returnStr)-1]
+				returns := strings.Split(returnStr, ",")
+				for _, ret := range returns {
+					ret = strings.TrimSpace(ret)
+					parts := strings.Split(ret, " ")
+
+					name := ""
+					typeName := parts[len(parts)-1]
+					if len(parts) > 1 {
+						name = parts[0]
+					}
+
+					fn.AddResult(name, typeName)
+				}
+			} else {
+				// Single return
+				fn.AddResult("", returnStr)
+			}
+		}
+	}
+
+	return fn
+}
 
 // TestGenerateTestTemplate tests basic test template generation
 func TestGenerateTestTemplate(t *testing.T) {
 	generator := NewGenerator()
 
 	// Test for a function with no parameters and no return
-	simpleFunc := model.GoFunction{
-		Name:      "DoNothing",
-		Signature: "()",
-	}
+	simpleFunc := createTestFunction("DoNothing", "()")
 
 	basicTemplate, err := generator.GenerateTestTemplate(simpleFunc, "basic")
 	if err != nil {
@@ -32,10 +94,7 @@ func TestGenerateTestTemplate(t *testing.T) {
 	}
 
 	// Test for a function with parameters and return value
-	complexFunc := model.GoFunction{
-		Name:      "ProcessUser",
-		Signature: "(user *User, options Options) (bool, error)",
-	}
+	complexFunc := createTestFunction("ProcessUser", "(user *User, options Options) (bool, error)")
 
 	tableTemplate, err := generator.GenerateTestTemplate(complexFunc, "table")
 	if err != nil {
@@ -79,16 +138,23 @@ func TestGenerateMissingTests(t *testing.T) {
 	generator := NewGenerator()
 
 	// Create a package with some functions
-	pkg := &model.GoPackage{
-		Name: "testpackage",
-		Functions: []model.GoFunction{
-			{Name: "Func1", Signature: "() error"},                              // No test
-			{Name: "Func2", Signature: "(input string) (output string, error)"}, // No test
-			{Name: "Func3", Signature: "(x, y int) int"},                        // Has test
-			{Name: "TestFunc3"},      // Test function
-			{Name: "BenchmarkFunc1"}, // Benchmark
-		},
+	pkg := &module.Package{
+		Name:      "testpackage",
+		Functions: make(map[string]*module.Function),
 	}
+
+	// Add functions to the package
+	func1 := createTestFunction("Func1", "() error")
+	func2 := createTestFunction("Func2", "(input string) (output string, error)")
+	func3 := createTestFunction("Func3", "(x, y int) int")
+	testFunc3 := createTestFunction("TestFunc3", "")
+	benchFunc1 := createTestFunction("BenchmarkFunc1", "")
+
+	pkg.Functions[func1.Name] = func1
+	pkg.Functions[func2.Name] = func2
+	pkg.Functions[func3.Name] = func3
+	pkg.Functions[testFunc3.Name] = testFunc3
+	pkg.Functions[benchFunc1.Name] = benchFunc1
 
 	// Create test package with mapping
 	testPkg := &TestPackage{
@@ -171,10 +237,7 @@ func TestVariousSignatureTypes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			fn := model.GoFunction{
-				Name:      "Test" + tc.name,
-				Signature: tc.signature,
-			}
+			fn := createTestFunction("Test"+tc.name, tc.signature)
 
 			template, err := generator.GenerateTestTemplate(fn, "basic")
 			if err != nil {

@@ -1,12 +1,12 @@
 // Package markdown provides functionality for generating Markdown documentation
-// from Go-Tree package model data.
+// from Go-Tree module data.
 package markdown
 
 import (
 	"encoding/json"
 	"fmt"
 
-	"bitspark.dev/go-tree/pkg/core/model"
+	"bitspark.dev/go-tree/pkg/core/module"
 	"bitspark.dev/go-tree/pkg/visual/formatter"
 )
 
@@ -43,19 +43,19 @@ func NewGenerator(options Options) *Generator {
 	}
 }
 
-// GenerateFromJSON converts JSON package data to a Markdown document
+// GenerateFromJSON converts JSON module data to a Markdown document
 func (g *Generator) GenerateFromJSON(jsonData []byte) (string, error) {
-	var pkg model.GoPackage
-	if err := json.Unmarshal(jsonData, &pkg); err != nil {
+	var mod module.Module
+	if err := json.Unmarshal(jsonData, &mod); err != nil {
 		return "", fmt.Errorf("failed to unmarshal JSON: %w", err)
 	}
 
-	return g.Generate(&pkg)
+	return g.Generate(&mod)
 }
 
-// Generate converts a GoPackage model to a Markdown document
-func (g *Generator) Generate(pkg *model.GoPackage) (string, error) {
+// Generate converts a Module to a Markdown document
+func (g *Generator) Generate(mod *module.Module) (string, error) {
 	visitor := NewMarkdownVisitor(g.options)
 	baseFormatter := formatter.NewBaseFormatter(visitor)
-	return baseFormatter.Format(pkg)
+	return baseFormatter.Format(mod)
 }

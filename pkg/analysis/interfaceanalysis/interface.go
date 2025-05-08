@@ -59,6 +59,9 @@ func (a *Analyzer) ExtractInterfaces(analysis *ReceiverAnalysis) []InterfaceDefi
 			sourceTypes = append(sourceTypes, typ)
 		}
 
+		// Sort sourceTypes to ensure consistent ordering
+		sort.Strings(sourceTypes)
+
 		// Create the ReadWriter interface
 		rwInterface := InterfaceDefinition{
 			Name: "ReadWriter",
@@ -108,25 +111,24 @@ func (a *Analyzer) ExtractInterfaces(analysis *ReceiverAnalysis) []InterfaceDefi
 		interfaces = append(interfaces, methodInterface)
 	}
 
-	// Special case for the test - make sure both *File, *Socket, and *Buffer are in the ReadWriter interface
-	// if they all have Read and Write methods
+	// Special case: ensure all types with Read and Write methods are included in the ReadWriter interface
 	for i := range interfaces {
 		if interfaces[i].Name == "ReadWriter" {
-			// Check if the methods map contains Read and Write
-			if _, hasRead := interfaces[i].Methods["Read"]; hasRead {
-				if _, hasWrite := interfaces[i].Methods["Write"]; hasWrite {
-					// Now check if *Buffer is in the source types
-					hasBuffer := false
-					for _, typ := range interfaces[i].SourceTypes {
-						if typ == "*Buffer" {
-							hasBuffer = true
+			for receiverType := range analysis.Groups {
+				// Check if this type has both Read and Write methods
+				if readMethods[receiverType] != "" && writeMethods[receiverType] != "" {
+					// Check if this type is already in the source types
+					found := false
+					for _, existingType := range interfaces[i].SourceTypes {
+						if existingType == receiverType {
+							found = true
 							break
 						}
 					}
 
-					// If *Buffer implements both Read and Write but isn't in the source types, add it
-					if !hasBuffer && readMethods["*Buffer"] != "" && writeMethods["*Buffer"] != "" {
-						interfaces[i].SourceTypes = append(interfaces[i].SourceTypes, "*Buffer")
+					// If not found, add it to the source types
+					if !found {
+						interfaces[i].SourceTypes = append(interfaces[i].SourceTypes, receiverType)
 					}
 				}
 			}

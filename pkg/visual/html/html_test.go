@@ -4,191 +4,205 @@ import (
 	"strings"
 	"testing"
 
-	"bitspark.dev/go-tree/pkg/core/model"
-	"bitspark.dev/go-tree/pkg/core/parse"
+	"bitspark.dev/go-tree/pkg/core/module"
 )
 
-// TestGenerate tests the basic HTML generation functionality
-func TestGenerate(t *testing.T) {
-	// Create a simple model package for testing
-	pkg := &model.GoPackage{
-		Name:       "testpkg",
-		PackageDoc: "This is a test package",
-		Imports: []model.GoImport{
-			{Path: "fmt", Alias: ""},
-			{Path: "os", Alias: ""},
-		},
-		Types: []model.GoType{
-			{
-				Name: "Person",
-				Kind: "struct",
-				Fields: []model.GoField{
-					{Name: "Name", Type: "string", Tag: "`json:\"name\"`"},
-					{Name: "Age", Type: "int", Tag: "`json:\"age\"`"},
-				},
-				Code: "type Person struct {\n\tName string `json:\"name\"`\n\tAge int `json:\"age\"`\n}",
-				Doc:  "Person represents a person",
-			},
-		},
-		Functions: []model.GoFunction{
-			{
-				Name:      "NewPerson",
-				Signature: "(name string, age int) *Person",
-				Body:      "\treturn &Person{Name: name, Age: age}\n",
-				Code:      "func NewPerson(name string, age int) *Person {\n\treturn &Person{Name: name, Age: age}\n}",
-				Doc:       "NewPerson creates a new Person",
-			},
-		},
-		Constants: []model.GoConstant{
-			{Name: "MaxAge", Type: "int", Value: "120"},
-		},
-		Variables: []model.GoVariable{
-			{Name: "DefaultAge", Type: "int", Value: "30"},
-		},
-	}
+func TestHTMLVisualizer_Visualize(t *testing.T) {
+	// Create a test module
+	mod := createTestModule()
 
-	// Create HTML generator with default options
-	generator := NewGenerator(DefaultOptions())
+	// Create visualizer with default options
+	visualizer := NewHTMLVisualizer(DefaultOptions())
 
 	// Generate HTML
-	html, err := generator.Generate(pkg)
+	html, err := visualizer.Visualize(mod)
 	if err != nil {
-		t.Fatalf("Failed to generate HTML: %v", err)
-	}
-
-	// Check that the HTML contains expected elements
-	expectedElements := []string{
-		"<title>Go Package Documentation - testpkg</title>",
-		"<h1>Package testpkg</h1>",
-		"Person represents a person",
-		"NewPerson creates a new Person",
-		"MaxAge",
-		"DefaultAge",
-	}
-
-	for _, expected := range expectedElements {
-		if !strings.Contains(html, expected) {
-			t.Errorf("Generated HTML doesn't contain expected element: %s", expected)
-		}
-	}
-
-	// Test with custom options
-	customOptions := Options{
-		Title:              "Custom Title",
-		SyntaxHighlighting: true,
-		IncludeCSS:         true,
-		CustomCSS:          ".custom { color: red; }",
-	}
-
-	customGenerator := NewGenerator(customOptions)
-	customHTML, err := customGenerator.Generate(pkg)
-	if err != nil {
-		t.Fatalf("Failed to generate HTML with custom options: %v", err)
-	}
-
-	// Inspect the template data being passed
-	t.Logf("Custom CSS being passed: '%s'", customOptions.CustomCSS)
-
-	// Debug: Check if style tag contains the custom CSS
-	styleTagStart := strings.Index(customHTML, "<style>")
-	styleTagEnd := strings.Index(customHTML, "</style>")
-	if styleTagStart != -1 && styleTagEnd != -1 && styleTagEnd > styleTagStart {
-		styleContent := customHTML[styleTagStart+7 : styleTagEnd]
-		t.Logf("Style tag content (truncated): %s", styleContent[:100])
-
-		// Check if the style tag contains the custom CSS
-		if !strings.Contains(styleContent, ".custom { color: red; }") {
-			t.Logf("Custom CSS not found in style tag content")
-		}
-	} else {
-		t.Logf("Couldn't locate style tag in output HTML")
-	}
-
-	// Check custom elements
-	if !strings.Contains(customHTML, "<title>Custom Title - testpkg</title>") {
-		t.Error("Custom title not applied")
-	}
-
-	if !strings.Contains(customHTML, ".custom { color: red; }") {
-		t.Error("Custom CSS not included")
-	}
-}
-
-// TestHTMLVisitor tests the HTML visitor implementation
-func TestHTMLVisitor(t *testing.T) {
-	// Create a simple package
-	pkg := &model.GoPackage{
-		Name: "testpkg",
-		Types: []model.GoType{
-			{Name: "TestType", Kind: "struct"},
-		},
-	}
-
-	// Create a visitor with custom options
-	options := Options{
-		Title:              "Test Title",
-		IncludeCSS:         true,
-		CustomCSS:          ".test { color: blue; }",
-		SyntaxHighlighting: true,
-	}
-
-	visitor := NewHTMLVisitor(options)
-
-	// Test visiting the package
-	err := visitor.VisitPackage(pkg)
-	if err != nil {
-		t.Fatalf("VisitPackage failed: %v", err)
-	}
-
-	// Test visiting a type
-	err = visitor.VisitType(pkg.Types[0])
-	if err != nil {
-		t.Fatalf("VisitType failed: %v", err)
-	}
-
-	// Test getting the result
-	result, err := visitor.Result()
-	if err != nil {
-		t.Fatalf("Result failed: %v", err)
-	}
-
-	// Check that the result contains expected elements
-	expectedElements := []string{
-		"<title>Test Title - testpkg</title>",
-		".test { color: blue; }",
-	}
-
-	for _, expected := range expectedElements {
-		if !strings.Contains(result, expected) {
-			t.Errorf("Result doesn't contain expected element: %s", expected)
-		}
-	}
-}
-
-// TestGenerateFromRealPackage tests HTML generation with a real parsed package
-func TestGenerateFromRealPackage(t *testing.T) {
-	// Skip this test if we can't find the test package
-	pkg, err := parse.ParsePackage("../../../testdata/samplepackage")
-	if err != nil {
-		t.Skipf("Skipping real package test: %v", err)
-	}
-
-	// Create HTML generator
-	generator := NewGenerator(DefaultOptions())
-
-	// Generate HTML
-	html, err := generator.Generate(pkg)
-	if err != nil {
-		t.Fatalf("Failed to generate HTML from real package: %v", err)
+		t.Fatalf("Visualize failed: %v", err)
 	}
 
 	// Basic checks
-	if !strings.Contains(html, "<h1>Package samplepackage</h1>") {
-		t.Error("Generated HTML doesn't contain package name")
+	htmlStr := string(html)
+
+	// Check module path
+	if !strings.Contains(htmlStr, "example.com/testmodule") {
+		t.Error("HTML output doesn't contain module path")
 	}
 
-	// Just check that the output looks reasonably large
-	if len(html) < 1000 {
-		t.Error("Generated HTML seems too short")
+	// Check package name
+	if !strings.Contains(htmlStr, "Package main") {
+		t.Error("HTML output doesn't contain package name")
 	}
+
+	// Check function
+	if !strings.Contains(htmlStr, "ExportedFunc") {
+		t.Error("HTML output doesn't contain exported function")
+	}
+
+	// Check type
+	if !strings.Contains(htmlStr, "TestStruct") {
+		t.Error("HTML output doesn't contain type definition")
+	}
+}
+
+func TestHTMLVisualizer_CustomTitle(t *testing.T) {
+	// Create a test module
+	mod := createTestModule()
+
+	// Create visualizer with custom title
+	options := DefaultOptions()
+	options.Title = "Custom Module Documentation"
+	visualizer := NewHTMLVisualizer(options)
+
+	// Generate HTML
+	html, err := visualizer.Visualize(mod)
+	if err != nil {
+		t.Fatalf("Visualize failed: %v", err)
+	}
+
+	// Check title
+	htmlStr := string(html)
+	if !strings.Contains(htmlStr, "Custom Module Documentation") {
+		t.Error("HTML output doesn't contain custom title")
+	}
+}
+
+func TestHTMLVisualizer_PrivateElements(t *testing.T) {
+	// Create a test module
+	mod := createTestModule()
+
+	// Test with private elements hidden (default)
+	defaultVisualizer := NewHTMLVisualizer(DefaultOptions())
+	defaultHTML, err := defaultVisualizer.Visualize(mod)
+	if err != nil {
+		t.Fatalf("Visualize failed: %v", err)
+	}
+
+	// Private elements should not be visible
+	if strings.Contains(string(defaultHTML), "privateFunc") {
+		t.Error("Private function should not be visible with default options")
+	}
+
+	// Test with private elements shown
+	options := DefaultOptions()
+	options.IncludePrivate = true
+	includePrivateVisualizer := NewHTMLVisualizer(options)
+	includePrivateHTML, err := includePrivateVisualizer.Visualize(mod)
+	if err != nil {
+		t.Fatalf("Visualize failed: %v", err)
+	}
+
+	// Private elements should be visible
+	if !strings.Contains(string(includePrivateHTML), "privateFunc") {
+		t.Error("Private function should be visible when IncludePrivate is true")
+	}
+}
+
+// createTestModule creates a test module for use in tests
+func createTestModule() *module.Module {
+	// Create a module
+	mod := &module.Module{
+		Path:      "example.com/testmodule",
+		GoVersion: "1.18",
+		Dir:       "/path/to/module",
+		Packages:  make(map[string]*module.Package),
+	}
+
+	// Create a package
+	pkg := &module.Package{
+		Name:          "main",
+		ImportPath:    "example.com/testmodule",
+		Module:        mod,
+		Documentation: "Package main is a test package.",
+		Files:         make(map[string]*module.File),
+		Types:         make(map[string]*module.Type),
+		Functions:     make(map[string]*module.Function),
+		Variables:     make(map[string]*module.Variable),
+		Constants:     make(map[string]*module.Constant),
+	}
+
+	// Add the package to the module
+	mod.Packages["example.com/testmodule"] = pkg
+	mod.MainPackage = pkg
+
+	// Create a file
+	file := &module.File{
+		Path:    "/path/to/module/main.go",
+		Name:    "main.go",
+		Package: pkg,
+	}
+	pkg.Files["main.go"] = file
+
+	// Create a type
+	structType := &module.Type{
+		Name:       "TestStruct",
+		File:       file,
+		Package:    pkg,
+		Kind:       "struct",
+		IsExported: true,
+		Doc:        "TestStruct is a test struct.",
+		Fields: []*module.Field{
+			{
+				Name:   "Field1",
+				Type:   "string",
+				Tag:    `json:"field1"`,
+				Doc:    "Field1 is a string field.",
+				Parent: nil,
+			},
+			{
+				Name:   "field2",
+				Type:   "int",
+				Tag:    `json:"field2"`,
+				Doc:    "field2 is a private int field.",
+				Parent: nil,
+			},
+		},
+	}
+	pkg.Types["TestStruct"] = structType
+
+	// Create exported function
+	exportedFunc := &module.Function{
+		Name:       "ExportedFunc",
+		File:       file,
+		Package:    pkg,
+		Signature:  "func ExportedFunc(arg string) error",
+		IsExported: true,
+		Doc:        "ExportedFunc is an exported function.",
+	}
+	pkg.Functions["ExportedFunc"] = exportedFunc
+
+	// Create private function
+	privateFunc := &module.Function{
+		Name:       "privateFunc",
+		File:       file,
+		Package:    pkg,
+		Signature:  "func privateFunc(arg int) bool",
+		IsExported: false,
+		Doc:        "privateFunc is a private function.",
+	}
+	pkg.Functions["privateFunc"] = privateFunc
+
+	// Create a constant
+	constant := &module.Constant{
+		Name:       "VERSION",
+		File:       file,
+		Package:    pkg,
+		Type:       "string",
+		Value:      `"1.0.0"`,
+		IsExported: true,
+		Doc:        "VERSION is the version constant.",
+	}
+	pkg.Constants["VERSION"] = constant
+
+	// Create a variable
+	variable := &module.Variable{
+		Name:       "config",
+		File:       file,
+		Package:    pkg,
+		Type:       "map[string]string",
+		IsExported: false,
+		Doc:        "config is a private variable.",
+	}
+	pkg.Variables["config"] = variable
+
+	return mod
 }

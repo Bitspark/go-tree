@@ -4,60 +4,70 @@ import (
 	"strings"
 	"testing"
 
-	"bitspark.dev/go-tree/pkg/core/model"
+	"bitspark.dev/go-tree/pkg/core/module"
 )
 
 // TestExtractInterfaces tests finding and extracting potential interfaces
 func TestExtractInterfaces(t *testing.T) {
 	// Create a test package with common methods
-	pkg := &model.GoPackage{
+	fileRead := &module.Function{
+		Name:      "Read",
+		Signature: "(p []byte) (n int, err error)",
+		Receiver:  &module.Receiver{Type: "*File"},
+	}
+	fileWrite := &module.Function{
+		Name:      "Write",
+		Signature: "(p []byte) (n int, err error)",
+		Receiver:  &module.Receiver{Type: "*File"},
+	}
+	fileClose := &module.Function{
+		Name:      "Close",
+		Signature: "() error",
+		Receiver:  &module.Receiver{Type: "*File"},
+	}
+	socketRead := &module.Function{
+		Name:      "Read",
+		Signature: "(p []byte) (n int, err error)",
+		Receiver:  &module.Receiver{Type: "*Socket"},
+	}
+	socketWrite := &module.Function{
+		Name:      "Write",
+		Signature: "(p []byte) (n int, err error)",
+		Receiver:  &module.Receiver{Type: "*Socket"},
+	}
+	socketClose := &module.Function{
+		Name:      "Close",
+		Signature: "() error",
+		Receiver:  &module.Receiver{Type: "*Socket"},
+	}
+	bufferRead := &module.Function{
+		Name:      "Read",
+		Signature: "(p []byte) (n int, err error)",
+		Receiver:  &module.Receiver{Type: "*Buffer"},
+	}
+	bufferWrite := &module.Function{
+		Name:      "Write",
+		Signature: "(p []byte) (n int, err error)",
+		Receiver:  &module.Receiver{Type: "*Buffer"},
+	}
+	bufferReset := &module.Function{
+		Name:      "Reset",
+		Signature: "()",
+		Receiver:  &module.Receiver{Type: "*Buffer"},
+	}
+
+	pkg := &module.Package{
 		Name: "testpackage",
-		Functions: []model.GoFunction{
-			{
-				Name:      "Read",
-				Signature: "(p []byte) (n int, err error)",
-				Receiver:  &model.GoReceiver{Type: "*File"},
-			},
-			{
-				Name:      "Write",
-				Signature: "(p []byte) (n int, err error)",
-				Receiver:  &model.GoReceiver{Type: "*File"},
-			},
-			{
-				Name:      "Close",
-				Signature: "() error",
-				Receiver:  &model.GoReceiver{Type: "*File"},
-			},
-			{
-				Name:      "Read",
-				Signature: "(p []byte) (n int, err error)",
-				Receiver:  &model.GoReceiver{Type: "*Socket"},
-			},
-			{
-				Name:      "Write",
-				Signature: "(p []byte) (n int, err error)",
-				Receiver:  &model.GoReceiver{Type: "*Socket"},
-			},
-			{
-				Name:      "Close",
-				Signature: "() error",
-				Receiver:  &model.GoReceiver{Type: "*Socket"},
-			},
-			{
-				Name:      "Read",
-				Signature: "(p []byte) (n int, err error)",
-				Receiver:  &model.GoReceiver{Type: "*Buffer"},
-			},
-			{
-				Name:      "Write",
-				Signature: "(p []byte) (n int, err error)",
-				Receiver:  &model.GoReceiver{Type: "*Buffer"},
-			},
-			{
-				Name:      "Reset",
-				Signature: "()",
-				Receiver:  &model.GoReceiver{Type: "*Buffer"},
-			},
+		Functions: map[string]*module.Function{
+			"File.Read":    fileRead,
+			"File.Write":   fileWrite,
+			"File.Close":   fileClose,
+			"Socket.Read":  socketRead,
+			"Socket.Write": socketWrite,
+			"Socket.Close": socketClose,
+			"Buffer.Read":  bufferRead,
+			"Buffer.Write": bufferWrite,
+			"Buffer.Reset": bufferReset,
 		},
 	}
 
