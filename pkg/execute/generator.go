@@ -52,6 +52,7 @@ func (g *TypeAwareCodeGenerator) GenerateExecWrapper(funcSymbol *typesys.Symbol,
 		ReceiverType    string
 		IsMethod        bool
 		ArgConversions  string
+		ParamCount      []int
 		HasReturnValues bool
 		ReturnTypes     string
 	}{
@@ -60,8 +61,14 @@ func (g *TypeAwareCodeGenerator) GenerateExecWrapper(funcSymbol *typesys.Symbol,
 		FunctionName:    funcSymbol.Name,
 		IsMethod:        funcSymbol.Kind == typesys.KindMethod,
 		ArgConversions:  argConversions,
-		HasReturnValues: false, // Will be set below
-		ReturnTypes:     "",    // Will be set below
+		ParamCount:      make([]int, len(args)), // Initialize with the number of arguments
+		HasReturnValues: false,                  // Will be set below
+		ReturnTypes:     "",                     // Will be set below
+	}
+
+	// Fill the ParamCount with indices (0, 1, 2, etc.)
+	for i := range data.ParamCount {
+		data.ParamCount[i] = i
 	}
 
 	// Handle method receiver if this is a method
@@ -94,8 +101,15 @@ func (g *TypeAwareCodeGenerator) GenerateExecWrapper(funcSymbol *typesys.Symbol,
 		}
 	}
 
+	// Create template with a custom function to check if an index is the last one
+	funcMap := template.FuncMap{
+		"isLast": func(index int, arr []int) bool {
+			return index == len(arr)-1
+		},
+	}
+
 	// Apply the template
-	tmpl, err := template.New("execWrapper").Parse(execWrapperTemplate)
+	tmpl, err := template.New("execWrapper").Funcs(funcMap).Parse(execWrapperTemplate)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse template: %w", err)
 	}
@@ -222,9 +236,9 @@ func main() {
 	{{if .IsMethod}}
 	// Need to initialize a receiver of the proper type
 	var receiver {{.ReceiverType}}
-	result := receiver.{{.FunctionName}}({{range $i, $_ := .ArgConversions}}arg{{$i}}, {{end}})
+	result := receiver.{{.FunctionName}}({{range $i := .ParamCount}}arg{{$i}}{{if not (isLast $i $.ParamCount)}}, {{end}}{{end}})
 	{{else}}
-	result := pkg.{{.FunctionName}}({{range $i, $_ := .ArgConversions}}arg{{$i}}, {{end}})
+	result := pkg.{{.FunctionName}}({{range $i := .ParamCount}}arg{{$i}}{{if not (isLast $i $.ParamCount)}}, {{end}}{{end}})
 	{{end}}
 	
 	// Encode the result to JSON and print it
@@ -239,9 +253,9 @@ func main() {
 	{{if .IsMethod}}
 	// Need to initialize a receiver of the proper type
 	var receiver {{.ReceiverType}}
-	receiver.{{.FunctionName}}({{range $i, $_ := .ArgConversions}}arg{{$i}}, {{end}})
+	receiver.{{.FunctionName}}({{range $i := .ParamCount}}arg{{$i}}{{if not (isLast $i $.ParamCount)}}, {{end}}{{end}})
 	{{else}}
-	pkg.{{.FunctionName}}({{range $i, $_ := .ArgConversions}}arg{{$i}}, {{end}})
+	pkg.{{.FunctionName}}({{range $i := .ParamCount}}arg{{$i}}{{if not (isLast $i $.ParamCount)}}, {{end}}{{end}})
 	{{end}}
 	
 	// Signal successful completion

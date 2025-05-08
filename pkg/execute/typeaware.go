@@ -121,21 +121,37 @@ func (ctx *ExecutionContextImpl) Execute(code string, args ...interface{}) (*Exe
 // ExecuteInline executes code inline with the current context
 func (ctx *ExecutionContextImpl) ExecuteInline(code string) (*ExecutionResult, error) {
 	// For inline execution, we'll wrap the code in a basic main function
-	// Only add module import if it's a valid module path
-	var imports string
-	if ctx.Module != nil && ctx.Module.Path != "" {
-		imports = fmt.Sprintf("import (\n  \"%s\"\n  \"fmt\"\n)\n", ctx.Module.Path)
-	} else {
-		imports = "import \"fmt\"\n"
-	}
+	// Check if the code is simple and only uses fmt
+	isFmtOnly := strings.Contains(code, "fmt.") && !strings.Contains(code, "import")
 
-	wrappedCode := fmt.Sprintf(`package main
+	var wrappedCode string
+	if isFmtOnly {
+		// For simple fmt-only code, don't import the module to avoid potential issues with missing go.mod
+		wrappedCode = fmt.Sprintf(`package main
+
+import "fmt"
+
+func main() {
+	%s
+}
+`, code)
+	} else {
+		// Only add module import if it's a valid module path
+		var imports string
+		if ctx.Module != nil && ctx.Module.Path != "" {
+			imports = fmt.Sprintf("import (\n  \"%s\"\n  \"fmt\"\n)\n", ctx.Module.Path)
+		} else {
+			imports = "import \"fmt\"\n"
+		}
+
+		wrappedCode = fmt.Sprintf(`package main
 
 %s
 func main() {
 	%s
 }
 `, imports, code)
+	}
 
 	return ctx.Execute(wrappedCode)
 }
