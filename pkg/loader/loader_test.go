@@ -1,6 +1,7 @@
-package typesys
+package loader
 
 import (
+	"bitspark.dev/go-tree/pkg/typesys"
 	"os"
 	"path/filepath"
 	"testing"
@@ -42,7 +43,7 @@ func TestModuleLoading(t *testing.T) {
 	}
 
 	// Try with explicit options
-	loadOpts := &LoadOptions{
+	loadOpts := &typesys.LoadOptions{
 		IncludeTests:   true,
 		IncludePrivate: true,
 		Trace:          true,
@@ -65,10 +66,10 @@ func TestPackageLoading(t *testing.T) {
 	}
 
 	// Create module without loading packages
-	module := NewModule(moduleDir)
+	module := typesys.NewModule(moduleDir)
 
 	// Try to load packages directly
-	opts := &LoadOptions{
+	opts := &typesys.LoadOptions{
 		IncludeTests:   true,
 		IncludePrivate: true,
 		Trace:          true,
@@ -222,7 +223,7 @@ func TestGoModAndPathDetection(t *testing.T) {
 	t.Log("Checking if directory can be properly loaded as a Go module")
 
 	// Create a module without loading packages
-	module := NewModule(moduleDir)
+	module := typesys.NewModule(moduleDir)
 
 	// Extract module info
 	if err := extractModuleInfo(module); err != nil {

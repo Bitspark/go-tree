@@ -1,6 +1,7 @@
-package typesys
+package loader
 
 import (
+	"bitspark.dev/go-tree/pkg/typesys"
 	"fmt"
 	"go/ast"
 	"go/token"
@@ -61,8 +62,8 @@ func TestSymbolHelpers(t *testing.T) {
 	fset := token.NewFileSet()
 
 	// Create a test package
-	module := NewModule("/test/module")
-	pkg := NewPackage(module, "testpkg", "github.com/example/testpkg")
+	module := typesys.NewModule("/test/module")
+	pkg := typesys.NewPackage(module, "testpkg", "github.com/example/testpkg")
 
 	// Add types info to package
 	pkg.TypesInfo = &types.Info{
@@ -74,18 +75,18 @@ func TestSymbolHelpers(t *testing.T) {
 	}
 
 	// Create a test file
-	file := NewFile("/test/module/file.go", pkg)
+	file := typesys.NewFile("/test/module/file.go", pkg)
 	file.FileSet = fset
 
 	// Test createSymbol
-	sym := createSymbol(pkg, file, "TestSymbol", KindFunction, token.Pos(10), token.Pos(20), nil)
+	sym := createSymbol(pkg, file, "TestSymbol", typesys.KindFunction, token.Pos(10), token.Pos(20), nil)
 
 	if sym.Name != "TestSymbol" {
 		t.Errorf("Symbol name = %q, want %q", sym.Name, "TestSymbol")
 	}
 
-	if sym.Kind != KindFunction {
-		t.Errorf("Symbol kind = %v, want %v", sym.Kind, KindFunction)
+	if sym.Kind != typesys.KindFunction {
+		t.Errorf("Symbol kind = %v, want %v", sym.Kind, typesys.KindFunction)
 	}
 
 	if sym.Package != pkg {
@@ -100,31 +101,31 @@ func TestSymbolHelpers(t *testing.T) {
 func TestSymbolFiltering(t *testing.T) {
 	tests := []struct {
 		name       string
-		opts       LoadOptions
+		opts       typesys.LoadOptions
 		symbolName string
 		expected   bool
 	}{
 		{
 			name:       "Include private with ExportedSymbol",
-			opts:       LoadOptions{IncludePrivate: true},
+			opts:       typesys.LoadOptions{IncludePrivate: true},
 			symbolName: "ExportedSymbol",
 			expected:   true,
 		},
 		{
 			name:       "Include private with unexportedSymbol",
-			opts:       LoadOptions{IncludePrivate: true},
+			opts:       typesys.LoadOptions{IncludePrivate: true},
 			symbolName: "unexportedSymbol",
 			expected:   true,
 		},
 		{
 			name:       "Exclude private with ExportedSymbol",
-			opts:       LoadOptions{IncludePrivate: false},
+			opts:       typesys.LoadOptions{IncludePrivate: false},
 			symbolName: "ExportedSymbol",
 			expected:   true,
 		},
 		{
 			name:       "Exclude private with unexportedSymbol",
-			opts:       LoadOptions{IncludePrivate: false},
+			opts:       typesys.LoadOptions{IncludePrivate: false},
 			symbolName: "unexportedSymbol",
 			expected:   false,
 		},
@@ -151,13 +152,13 @@ func TestLoggingHelpers(t *testing.T) {
 	errorf(nil, "This is an error message")
 
 	// With trace disabled
-	opts := &LoadOptions{Trace: false}
+	opts := &typesys.LoadOptions{Trace: false}
 	tracef(opts, "This is a trace message")
 	warnf(opts, "This is a warning message")
 	errorf(opts, "This is an error message")
 
 	// With trace enabled (will print to stdout but we're just checking no panic)
-	opts = &LoadOptions{Trace: true}
+	opts = &typesys.LoadOptions{Trace: true}
 	tracef(opts, "This is a trace message with %s", "formatting")
 	warnf(opts, "This is a warning message with %s", "formatting")
 	errorf(opts, "This is an error message with %s", "formatting")
@@ -165,9 +166,9 @@ func TestLoggingHelpers(t *testing.T) {
 
 func TestProcessSafely(t *testing.T) {
 	// Create a test file
-	module := NewModule("/test/module")
-	pkg := NewPackage(module, "testpkg", "github.com/example/testpkg")
-	file := NewFile("/test/module/file.go", pkg)
+	module := typesys.NewModule("/test/module")
+	pkg := typesys.NewPackage(module, "testpkg", "github.com/example/testpkg")
+	file := typesys.NewFile("/test/module/file.go", pkg)
 
 	// Test successful function
 	err := processSafely(file, func() error {

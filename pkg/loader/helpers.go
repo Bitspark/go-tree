@@ -1,16 +1,17 @@
-package typesys
+package loader
 
 import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"go/types"
 	"path/filepath"
+
+	"bitspark.dev/go-tree/pkg/typesys"
 )
 
 // createSymbol centralizes the common logic for creating and initializing symbols
-func createSymbol(pkg *Package, file *File, name string, kind SymbolKind, pos, end token.Pos, parent *Symbol) *Symbol {
-	sym := NewSymbol(name, kind)
+func createSymbol(pkg *typesys.Package, file *typesys.File, name string, kind typesys.SymbolKind, pos, end token.Pos, parent *typesys.Symbol) *typesys.Symbol {
+	sym := typesys.NewSymbol(name, kind)
 	sym.Pos = pos
 	sym.End = end
 	sym.File = file
@@ -25,28 +26,13 @@ func createSymbol(pkg *Package, file *File, name string, kind SymbolKind, pos, e
 	return sym
 }
 
-// extractTypeInfo centralizes getting type information from the type checker
-func extractTypeInfo(pkg *Package, name *ast.Ident, expr ast.Expr) (types.Object, types.Type) {
-	if name != nil && pkg.TypesInfo != nil {
-		if obj := pkg.TypesInfo.ObjectOf(name); obj != nil {
-			return obj, obj.Type()
-		}
-	}
-
-	if expr != nil && pkg.TypesInfo != nil {
-		return nil, pkg.TypesInfo.TypeOf(expr)
-	}
-
-	return nil, nil
-}
-
 // shouldIncludeSymbol determines if a symbol should be included based on options
-func shouldIncludeSymbol(name string, opts *LoadOptions) bool {
+func shouldIncludeSymbol(name string, opts *typesys.LoadOptions) bool {
 	return opts.IncludePrivate || ast.IsExported(name)
 }
 
 // processSafely executes a function with panic recovery
-func processSafely(file *File, fn func() error, opts *LoadOptions) error {
+func processSafely(file *typesys.File, fn func() error, opts *typesys.LoadOptions) error {
 	var err error
 	func() {
 		defer func() {
@@ -85,22 +71,41 @@ func ensureAbsolutePath(path string) string {
 // Logging helpers
 
 // tracef logs a message if tracing is enabled
-func tracef(opts *LoadOptions, format string, args ...interface{}) {
+func tracef(opts *typesys.LoadOptions, format string, args ...interface{}) {
 	if opts != nil && opts.Trace {
 		fmt.Printf(format, args...)
 	}
 }
 
 // warnf logs a warning message if tracing is enabled
-func warnf(opts *LoadOptions, format string, args ...interface{}) {
+func warnf(opts *typesys.LoadOptions, format string, args ...interface{}) {
 	if opts != nil && opts.Trace {
 		fmt.Printf("WARNING: "+format, args...)
 	}
 }
 
 // errorf logs an error message if tracing is enabled
-func errorf(opts *LoadOptions, format string, args ...interface{}) {
+func errorf(opts *typesys.LoadOptions, format string, args ...interface{}) {
 	if opts != nil && opts.Trace {
 		fmt.Printf("ERROR: "+format, args...)
 	}
+}
+
+// Helper function to convert an expression to a string representation
+func exprToString(expr ast.Expr) string {
+	switch t := expr.(type) {
+	case *ast.Ident:
+		return t.Name
+	case *ast.SelectorExpr:
+		if x, ok := t.X.(*ast.Ident); ok {
+			return x.Name + "." + t.Sel.Name
+		}
+	case *ast.StarExpr:
+		return "*" + exprToString(t.X)
+	case *ast.ArrayType:
+		return "[]" + exprToString(t.Elt)
+	case *ast.MapType:
+		return "map[" + exprToString(t.Key) + "]" + exprToString(t.Value)
+	}
+	return ""
 }

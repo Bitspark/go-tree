@@ -201,3 +201,14 @@ func (m *Module) Visualize(format string, opts *VisualizeOptions) ([]byte, error
 	// This is a placeholder that will be implemented later
 	return nil, nil
 }
+
+// CachePackage stores a loaded package in the module's internal cache.
+// This is used by the loader package to maintain a record of loaded packages.
+func (m *Module) CachePackage(path string, pkg *packages.Package) {
+	m.pkgCache[path] = pkg
+}
+
+// GetCachedPackage retrieves a package from the module's internal cache.
+func (m *Module) GetCachedPackage(path string) *packages.Package {
+	return m.pkgCache[path]
+}
