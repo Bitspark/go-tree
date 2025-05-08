@@ -7,6 +7,8 @@ import (
 
 	"bitspark.dev/go-tree/pkg/index"
 	"bitspark.dev/go-tree/pkg/loader"
+	"bitspark.dev/go-tree/pkg/materialize"
+	"bitspark.dev/go-tree/pkg/resolve"
 	"bitspark.dev/go-tree/pkg/typesys"
 )
 
@@ -51,8 +53,9 @@ type Service struct {
 	// Version tracking
 	PackageVersions map[string]map[string]*ModulePackage // map[importPath]map[version]*ModulePackage
 
-	// Dependency management
-	DependencyManager *DependencyManager
+	// New architecture components
+	Resolver     resolve.Resolver
+	Materializer materialize.Materializer
 
 	// Configuration
 	Config *Config
@@ -66,6 +69,20 @@ func NewService(config *Config) (*Service, error) {
 		PackageVersions: make(map[string]map[string]*ModulePackage),
 		Config:          config,
 	}
+
+	// Initialize resolver and materializer
+	resolveOpts := resolve.ResolveOptions{
+		IncludeTests:     config.IncludeTests,
+		IncludePrivate:   true,
+		DependencyDepth:  config.DependencyDepth,
+		DownloadMissing:  config.DownloadMissing,
+		VersionPolicy:    resolve.LenientVersionPolicy,
+		DependencyPolicy: resolve.AllDependencies,
+		Verbose:          config.Verbose,
+	}
+	service.Resolver = resolve.NewModuleResolverWithOptions(resolveOpts)
+
+	service.Materializer = materialize.NewModuleMaterializer()
 
 	// Load main module first
 	mainModule, err := loader.LoadModule(config.ModuleDir, &typesys.LoadOptions{
@@ -97,9 +114,6 @@ func NewService(config *Config) (*Service, error) {
 		service.Modules[module.Path] = module
 		service.Indices[module.Path] = index.NewIndex(module)
 	}
-
-	// Initialize dependency manager
-	service.DependencyManager = NewDependencyManager(service)
 
 	// Load dependencies if requested
 	if config.WithDeps {
@@ -273,9 +287,16 @@ func (s *Service) FindTypeAcrossModules(importPath string, typeName string) map[
 	return result
 }
 
-// loadDependencies loads dependencies for all modules using the DependencyManager
+// loadDependencies loads dependencies for all modules using the Resolver
 func (s *Service) loadDependencies() error {
-	return s.DependencyManager.LoadDependencies()
+	// Process each module's dependencies
+	for modPath, mod := range s.Modules {
+		if err := s.Resolver.ResolveDependencies(mod, 0); err != nil {
+			return fmt.Errorf("error loading dependencies for module %s: %w", modPath, err)
+		}
+	}
+
+	return nil
 }
 
 // isPackageLoaded checks if a package is already loaded
@@ -307,4 +328,30 @@ func (s *Service) recordPackageVersions(module *typesys.Module, version string) 
 		// Record the version
 		s.PackageVersions[importPath][version] = modPkg
 	}
+}
+
+// CreateEnvironment creates an execution environment for modules
+func (s *Service) CreateEnvironment(modules []*typesys.Module, opts *Config) (*materialize.Environment, error) {
+	// Set up materialization options
+	materializeOpts := materialize.MaterializeOptions{
+		DependencyPolicy: materialize.DirectDependenciesOnly,
+		ReplaceStrategy:  materialize.RelativeReplace,
+		LayoutStrategy:   materialize.FlatLayout,
+		RunGoModTidy:     true,
+		IncludeTests:     opts != nil && opts.IncludeTests,
+		Verbose:          opts != nil && opts.Verbose,
+	}
+
+	// Materialize the modules
+	return s.Materializer.MaterializeMultipleModules(modules, materializeOpts)
+}
+
+// AddDependency adds a dependency to a module
+func (s *Service) AddDependency(module *typesys.Module, importPath, version string) error {
+	return s.Resolver.AddDependency(module, importPath, version)
+}
+
+// RemoveDependency removes a dependency from a module
+func (s *Service) RemoveDependency(module *typesys.Module, importPath string) error {
+	return s.Resolver.RemoveDependency(module, importPath)
 }
