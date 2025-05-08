@@ -6,6 +6,7 @@ package typesys
 import (
 	"fmt"
 	"go/token"
+	"go/types"
 
 	"golang.org/x/tools/go/packages"
 )
@@ -207,4 +208,56 @@ func (m *Module) CachePackage(path string, pkg *packages.Package) {
 // GetCachedPackage retrieves a package from the module's internal cache.
 func (m *Module) GetCachedPackage(path string) *packages.Package {
 	return m.pkgCache[path]
+}
+
+// ResolveType resolves a type name to its corresponding Go type
+func (m *Module) ResolveType(name string) (types.Type, error) {
+	// Try to find the type in each package of the module
+	for _, pkg := range m.Packages {
+		// Look through the package's scope
+		if tsPkg := pkg.TypesPackage; tsPkg != nil {
+			scope := tsPkg.Scope()
+			for _, typeName := range scope.Names() {
+				obj := scope.Lookup(typeName)
+				if obj == nil {
+					continue
+				}
+
+				// If the name matches and it's a type
+				if typeName == name {
+					if typeObj, ok := obj.(*types.TypeName); ok {
+						return typeObj.Type(), nil
+					}
+				}
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("type %s not found in module %s", name, m.Path)
+}
+
+// ResolveTypeAcrossModules resolves a type name using a module resolver for cross-module resolution
+func (m *Module) ResolveTypeAcrossModules(name string, resolver ModuleResolver) (types.Type, *Module, error) {
+	// Try to resolve locally first
+	if typ, err := m.ResolveType(name); err == nil {
+		return typ, m, nil
+	}
+
+	// If not found, try other modules
+	for _, modPath := range resolver.AvailableModules() {
+		if modPath == m.Path {
+			continue // Skip self
+		}
+
+		otherMod := resolver.GetModule(modPath)
+		if otherMod == nil {
+			continue
+		}
+
+		if typ, err := otherMod.ResolveType(name); err == nil {
+			return typ, otherMod, nil
+		}
+	}
+
+	return nil, nil, fmt.Errorf("type %s not found in any module", name)
 }

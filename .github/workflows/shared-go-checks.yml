@@ -122,7 +122,7 @@ jobs:
       - name: Run govulncheck
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.0.1
-          govulncheck ./...
+          govulncheck -config=.govulncheck.yaml ./...
       
       - name: Run trivy for filesystem scanning
         if: inputs.full-security-scan == true
