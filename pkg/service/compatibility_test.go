@@ -4,7 +4,7 @@ import (
 	"go/types"
 	"testing"
 
-	"bitspark.dev/go-tree/pkg/typesys"
+	"bitspark.dev/go-tree/pkg/core/typesys"
 )
 
 // TestAnalyzeTypeCompatibility tests compatibility analysis between type versions
@@ -83,9 +83,9 @@ func TestCompareTypes(t *testing.T) {
 		ID:   "diff",
 		Name: "DiffType",
 		Kind: typesys.KindInterface,
-		TypeInfo: types.NewInterface(
+		TypeInfo: types.NewInterfaceType(
 			[]*types.Func{},
-			[]*types.Named{},
+			[]types.Type{},
 		),
 	}
 
@@ -303,13 +303,13 @@ func TestCompareInterfaces(t *testing.T) {
 	pkg := types.NewPackage("example.com/pkg", "pkg")
 
 	// Create base interface with no methods
-	baseIface := types.NewInterface(
+	baseIface := types.NewInterfaceType(
 		nil, // methods
 		nil, // embedded interfaces
 	)
 
 	// Create interface with one method
-	oneMethodIface := types.NewInterface(
+	oneMethodIface := types.NewInterfaceType(
 		[]*types.Func{
 			types.NewFunc(0, pkg, "Method1", types.NewSignature(
 				nil, // receiver
@@ -322,7 +322,7 @@ func TestCompareInterfaces(t *testing.T) {
 	)
 
 	// Create interface with different method signature
-	differentSignatureIface := types.NewInterface(
+	differentSignatureIface := types.NewInterfaceType(
 		[]*types.Func{
 			types.NewFunc(0, pkg, "Method1", types.NewSignature(
 				nil, // receiver
@@ -335,7 +335,7 @@ func TestCompareInterfaces(t *testing.T) {
 	)
 
 	// Create interface with different return type
-	differentReturnIface := types.NewInterface(
+	differentReturnIface := types.NewInterfaceType(
 		[]*types.Func{
 			types.NewFunc(0, pkg, "Method1", types.NewSignature(
 				nil, // receiver
@@ -348,7 +348,7 @@ func TestCompareInterfaces(t *testing.T) {
 	)
 
 	// Create interface with variadic method
-	variadicIface := types.NewInterface(
+	variadicIface := types.NewInterfaceType(
 		[]*types.Func{
 			types.NewFunc(0, pkg, "Method1", types.NewSignature(
 				nil, // receiver
@@ -361,7 +361,7 @@ func TestCompareInterfaces(t *testing.T) {
 	)
 
 	// Create interface with multiple methods
-	multiMethodIface := types.NewInterface(
+	multiMethodIface := types.NewInterfaceType(
 		[]*types.Func{
 			types.NewFunc(0, pkg, "Method1", types.NewSignature(
 				nil, // receiver
@@ -380,7 +380,7 @@ func TestCompareInterfaces(t *testing.T) {
 	)
 
 	// Create an interface to embed
-	embeddedIface := types.NewInterface(
+	embeddedIface := types.NewInterfaceType(
 		[]*types.Func{
 			types.NewFunc(0, pkg, "EmbeddedMethod", types.NewSignature(
 				nil, // receiver
@@ -400,7 +400,7 @@ func TestCompareInterfaces(t *testing.T) {
 	)
 
 	// Create interface that embeds another interface
-	withEmbeddedIface := types.NewInterface(
+	withEmbeddedIface := types.NewInterfaceType(
 		[]*types.Func{
 			types.NewFunc(0, pkg, "Method1", types.NewSignature(
 				nil, // receiver
@@ -409,7 +409,7 @@ func TestCompareInterfaces(t *testing.T) {
 				false, // variadic
 			)),
 		},
-		[]*types.Named{namedEmbedded}, // embedded interfaces
+		[]types.Type{namedEmbedded}, // embedded interfaces
 	)
 
 	// Create symbols for the interfaces
@@ -537,9 +537,9 @@ func TestCompareInterfaces(t *testing.T) {
 
 	// Compare one method interface with embedded interface that has the same method and more
 	t.Run("Compare with embedded containing same method", func(t *testing.T) {
-		embeddedSameMethodIface := types.NewInterface(
+		embeddedSameMethodIface := types.NewInterfaceType(
 			nil, // no direct methods
-			[]*types.Named{
+			[]types.Type{
 				types.NewNamed(
 					types.NewTypeName(0, pkg, "Embedded", nil),
 					oneMethodIface, // this has Method1

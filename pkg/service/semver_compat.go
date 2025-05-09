@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"bitspark.dev/go-tree/pkg/typesys"
+	"bitspark.dev/go-tree/pkg/core/typesys"
 )
 
 // SemverImpact represents the impact level of a change according to semver rules

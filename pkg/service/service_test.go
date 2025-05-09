@@ -1,11 +1,9 @@
 package service
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
-	"bitspark.dev/go-tree/pkg/typesys"
+	"bitspark.dev/go-tree/pkg/core/typesys"
 )
 
 // MockSymbol creates a mock Symbol for testing
@@ -14,14 +12,6 @@ func mockSymbol(id, name string, kind typesys.SymbolKind) *typesys.Symbol {
 		ID:   id,
 		Name: name,
 		Kind: kind,
-	}
-}
-
-// MockPackage creates a mock Package for testing
-func mockPackage(importPath string) *typesys.Package {
-	return &typesys.Package{
-		ImportPath: importPath,
-		Symbols:    make(map[string]*typesys.Symbol),
 	}
 }
 
@@ -200,30 +190,5 @@ func TestFindTypeAcrossModules(t *testing.T) {
 
 	if typeVersions["mod1"] == nil || typeVersions["mod2"] == nil {
 		t.Errorf("FindTypeAcrossModules() missing versions from some modules")
-	}
-}
-
-// Helper function to create a test module with a go.mod file
-func createTestModule(t *testing.T, dir string, modPath string, deps []string) {
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		t.Fatalf("Failed to create module directory %s: %v", dir, err)
-	}
-
-	// Create go.mod content
-	content := "module " + modPath + "\n\ngo 1.16\n\n"
-
-	// Add dependencies if any
-	if len(deps) > 0 {
-		content += "require (\n"
-		for _, dep := range deps {
-			content += "\t" + dep + "\n"
-		}
-		content += ")\n"
-	}
-
-	// Write go.mod file
-	goModPath := filepath.Join(dir, "go.mod")
-	if err := os.WriteFile(goModPath, []byte(content), 0644); err != nil {
-		t.Fatalf("Failed to write go.mod file: %v", err)
 	}
 }

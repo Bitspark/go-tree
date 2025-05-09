@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"bitspark.dev/go-tree/pkg/typesys"
+	"bitspark.dev/go-tree/pkg/core/typesys"
 )
 
 func TestService_NewArchitecture(t *testing.T) {

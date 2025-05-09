@@ -5,18 +5,18 @@
 package integration
 
 import (
+	"bitspark.dev/go-tree/pkg/core/index"
+	"bitspark.dev/go-tree/pkg/ext/transform"
+	extract2 "bitspark.dev/go-tree/pkg/ext/transform/extract"
+	"bitspark.dev/go-tree/pkg/ext/transform/rename"
+	"bitspark.dev/go-tree/pkg/io/loader"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"bitspark.dev/go-tree/pkg/index"
-	"bitspark.dev/go-tree/pkg/loader"
-	"bitspark.dev/go-tree/pkg/transform"
-	"bitspark.dev/go-tree/pkg/transform/extract"
-	"bitspark.dev/go-tree/pkg/transform/rename"
-	"bitspark.dev/go-tree/pkg/typesys"
+	"bitspark.dev/go-tree/pkg/core/typesys"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -70,11 +70,11 @@ func TestExtractTransform(t *testing.T) {
 	ctx := transform.NewContext(module, idx, true) // Start with dry run mode
 
 	// Create an interface extractor with extremely permissive options for testing
-	options := extract.DefaultOptions()
+	options := extract2.DefaultOptions()
 	options.MinimumTypes = 2      // Only require 2 types to have a common pattern
 	options.MinimumMethods = 1    // Only require 1 common method
 	options.MethodThreshold = 0.1 // Very low threshold for testing
-	extractor := extract.NewInterfaceExtractor(options)
+	extractor := extract2.NewInterfaceExtractor(options)
 
 	// Validate the transformer
 	err = extractor.Validate(ctx)

@@ -2,12 +2,12 @@
 package integration
 
 import (
+	"bitspark.dev/go-tree/pkg/io/loader"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"bitspark.dev/go-tree/pkg/loader"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

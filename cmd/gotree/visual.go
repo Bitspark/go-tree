@@ -1,16 +1,16 @@
 package main
 
 import (
+	visualcmd "bitspark.dev/go-tree/pkg/ext/visual/cmd"
+	"bitspark.dev/go-tree/pkg/ext/visual/json"
+	"bitspark.dev/go-tree/pkg/io/loader"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 
-	"bitspark.dev/go-tree/pkg/loader"
-	"bitspark.dev/go-tree/pkg/typesys"
-	visualcmd "bitspark.dev/go-tree/pkg/visual/cmd"
-	"bitspark.dev/go-tree/pkg/visual/json"
+	"bitspark.dev/go-tree/pkg/core/typesys"
 )
 
 func newVisualCmd() *cobra.Command {

@@ -4,16 +4,16 @@
 package integration
 
 import (
+	"bitspark.dev/go-tree/pkg/core/index"
+	"bitspark.dev/go-tree/pkg/ext/transform"
+	"bitspark.dev/go-tree/pkg/ext/transform/rename"
+	"bitspark.dev/go-tree/pkg/io/loader"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"bitspark.dev/go-tree/pkg/index"
-	"bitspark.dev/go-tree/pkg/loader"
-	"bitspark.dev/go-tree/pkg/transform"
-	"bitspark.dev/go-tree/pkg/transform/rename"
-	"bitspark.dev/go-tree/pkg/typesys"
+	"bitspark.dev/go-tree/pkg/core/typesys"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

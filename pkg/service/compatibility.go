@@ -5,7 +5,7 @@ import (
 	"go/types"
 	"sort"
 
-	"bitspark.dev/go-tree/pkg/typesys"
+	"bitspark.dev/go-tree/pkg/core/typesys"
 )
 
 // TypeDifference represents a difference between two type versions

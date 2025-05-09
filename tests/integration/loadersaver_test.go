@@ -2,14 +2,14 @@
 package integration
 
 import (
+	"bitspark.dev/go-tree/pkg/io/loader"
+	"bitspark.dev/go-tree/pkg/io/saver"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"bitspark.dev/go-tree/pkg/loader"
-	"bitspark.dev/go-tree/pkg/saver"
-	"bitspark.dev/go-tree/pkg/typesys"
+	"bitspark.dev/go-tree/pkg/core/typesys"
 )
 
 // TestLoaderSaverRoundTrip tests the roundtrip from loader to saver and back.

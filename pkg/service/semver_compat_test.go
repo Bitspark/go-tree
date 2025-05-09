@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"bitspark.dev/go-tree/pkg/typesys"
+	"bitspark.dev/go-tree/pkg/core/typesys"
 )
 
 // TestDetermineSemverImpact tests the semver impact determination
@@ -375,5 +375,5 @@ func createTestInterface(methodNames []string, numMethods int) *types.Interface 
 		methods = append(methods, types.NewFunc(0, pkg, methodNames[i], sig))
 	}
 
-	return types.NewInterface(methods, nil)
+	return types.NewInterfaceType(methods, nil)
 }

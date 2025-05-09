@@ -2,14 +2,14 @@
 package service
 
 import (
+	"bitspark.dev/go-tree/pkg/core/index"
+	"bitspark.dev/go-tree/pkg/io/loader"
+	materialize2 "bitspark.dev/go-tree/pkg/io/materialize"
+	resolve2 "bitspark.dev/go-tree/pkg/io/resolve"
 	"fmt"
 	"go/types"
 
-	"bitspark.dev/go-tree/pkg/index"
-	"bitspark.dev/go-tree/pkg/loader"
-	"bitspark.dev/go-tree/pkg/materialize"
-	"bitspark.dev/go-tree/pkg/resolve"
-	"bitspark.dev/go-tree/pkg/typesys"
+	"bitspark.dev/go-tree/pkg/core/typesys"
 )
 
 // Config holds service configuration with multi-module support
@@ -54,8 +54,8 @@ type Service struct {
 	PackageVersions map[string]map[string]*ModulePackage // map[importPath]map[version]*ModulePackage
 
 	// New architecture components
-	Resolver     resolve.Resolver
-	Materializer materialize.Materializer
+	Resolver     resolve2.Resolver
+	Materializer materialize2.Materializer
 
 	// Configuration
 	Config *Config
@@ -71,18 +71,18 @@ func NewService(config *Config) (*Service, error) {
 	}
 
 	// Initialize resolver and materializer
-	resolveOpts := resolve.ResolveOptions{
+	resolveOpts := resolve2.ResolveOptions{
 		IncludeTests:     config.IncludeTests,
 		IncludePrivate:   true,
 		DependencyDepth:  config.DependencyDepth,
 		DownloadMissing:  config.DownloadMissing,
-		VersionPolicy:    resolve.LenientVersionPolicy,
-		DependencyPolicy: resolve.AllDependencies,
+		VersionPolicy:    resolve2.LenientVersionPolicy,
+		DependencyPolicy: resolve2.AllDependencies,
 		Verbose:          config.Verbose,
 	}
-	service.Resolver = resolve.NewModuleResolverWithOptions(resolveOpts)
+	service.Resolver = resolve2.NewModuleResolverWithOptions(resolveOpts)
 
-	service.Materializer = materialize.NewModuleMaterializer()
+	service.Materializer = materialize2.NewModuleMaterializer()
 
 	// Load main module first
 	mainModule, err := loader.LoadModule(config.ModuleDir, &typesys.LoadOptions{
@@ -299,44 +299,13 @@ func (s *Service) loadDependencies() error {
 	return nil
 }
 
-// isPackageLoaded checks if a package is already loaded
-func (s *Service) isPackageLoaded(importPath string) bool {
-	for _, mod := range s.Modules {
-		if _, ok := mod.Packages[importPath]; ok {
-			return true
-		}
-	}
-	return false
-}
-
-// recordPackageVersions records version information for packages in a module
-func (s *Service) recordPackageVersions(module *typesys.Module, version string) {
-	for importPath, pkg := range module.Packages {
-		// Initialize map if needed
-		if _, ok := s.PackageVersions[importPath]; !ok {
-			s.PackageVersions[importPath] = make(map[string]*ModulePackage)
-		}
-
-		// Create ModulePackage entry
-		modPkg := &ModulePackage{
-			Module:     module,
-			Package:    pkg,
-			ImportPath: importPath,
-			Version:    version,
-		}
-
-		// Record the version
-		s.PackageVersions[importPath][version] = modPkg
-	}
-}
-
 // CreateEnvironment creates an execution environment for modules
-func (s *Service) CreateEnvironment(modules []*typesys.Module, opts *Config) (*materialize.Environment, error) {
+func (s *Service) CreateEnvironment(modules []*typesys.Module, opts *Config) (*materialize2.Environment, error) {
 	// Set up materialization options
-	materializeOpts := materialize.MaterializeOptions{
-		DependencyPolicy: materialize.DirectDependenciesOnly,
-		ReplaceStrategy:  materialize.RelativeReplace,
-		LayoutStrategy:   materialize.FlatLayout,
+	materializeOpts := materialize2.MaterializeOptions{
+		DependencyPolicy: materialize2.DirectDependenciesOnly,
+		ReplaceStrategy:  materialize2.RelativeReplace,
+		LayoutStrategy:   materialize2.FlatLayout,
 		RunGoModTidy:     true,
 		IncludeTests:     opts != nil && opts.IncludeTests,
 		Verbose:          opts != nil && opts.Verbose,
