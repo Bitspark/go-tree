@@ -5,15 +5,16 @@ import (
 	"testing"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
+	"bitspark.dev/go-tree/pkg/io/materialize"
 	"bitspark.dev/go-tree/pkg/run/execute"
 	"bitspark.dev/go-tree/pkg/run/testing/common"
 )
 
-// MockExecutor implements execute.ModuleExecutor for testing
+// MockExecutor implements execute.Executor for testing
 type MockExecutor struct {
-	ExecuteResult     execute.ExecutionResult
+	ExecuteResult     *execute.ExecutionResult
 	ExecuteError      error
-	ExecuteTestResult execute.TestResult
+	ExecuteTestResult *execute.TestResult
 	ExecuteTestError  error
 	ExecuteFuncResult interface{}
 	ExecuteFuncError  error
@@ -25,20 +26,20 @@ type MockExecutor struct {
 	TestFlags         []string
 }
 
-func (m *MockExecutor) Execute(module *typesys.Module, args ...string) (execute.ExecutionResult, error) {
+func (m *MockExecutor) Execute(env *materialize.Environment, command []string) (*execute.ExecutionResult, error) {
 	m.ExecuteCalled = true
-	m.Args = args
+	m.Args = command
 	return m.ExecuteResult, m.ExecuteError
 }
 
-func (m *MockExecutor) ExecuteTest(module *typesys.Module, pkgPath string, testFlags ...string) (execute.TestResult, error) {
+func (m *MockExecutor) ExecuteTest(env *materialize.Environment, module *typesys.Module, pkgPath string, testFlags ...string) (*execute.TestResult, error) {
 	m.ExecuteTestCalled = true
 	m.PkgPath = pkgPath
 	m.TestFlags = testFlags
 	return m.ExecuteTestResult, m.ExecuteTestError
 }
 
-func (m *MockExecutor) ExecuteFunc(module *typesys.Module, funcSymbol *typesys.Symbol, args ...interface{}) (interface{}, error) {
+func (m *MockExecutor) ExecuteFunc(env *materialize.Environment, module *typesys.Module, funcSymbol *typesys.Symbol, args ...interface{}) (interface{}, error) {
 	m.ExecuteFuncCalled = true
 	return m.ExecuteFuncResult, m.ExecuteFuncError
 }
@@ -81,7 +82,7 @@ func TestRunTests(t *testing.T) {
 
 	// Test with empty package path
 	mod := &typesys.Module{Path: "test-module"}
-	mockExecutor.ExecuteTestResult = execute.TestResult{
+	mockExecutor.ExecuteTestResult = &execute.TestResult{
 		Package: "./...",
 		Tests:   []string{"Test1"},
 		Passed:  1,
@@ -178,7 +179,7 @@ func TestAnalyzeCoverage(t *testing.T) {
 
 	// Test with empty package path
 	mod := &typesys.Module{Path: "test-module"}
-	mockExecutor.ExecuteTestResult = execute.TestResult{
+	mockExecutor.ExecuteTestResult = &execute.TestResult{
 		Package: "./...",
 		Output:  "coverage: 75.0% of statements",
 	}

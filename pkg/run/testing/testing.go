@@ -4,6 +4,7 @@ package testing
 
 import (
 	"bitspark.dev/go-tree/pkg/core/typesys"
+	"bitspark.dev/go-tree/pkg/io/materialize"
 	"bitspark.dev/go-tree/pkg/run/execute"
 	"bitspark.dev/go-tree/pkg/run/testing/common"
 )
@@ -65,9 +66,12 @@ func ExecuteTests(mod *typesys.Module, sym *typesys.Symbol, verbose bool) (*comm
 	_ = testSuite // Using the variable to avoid linter error until implementation is complete
 
 	// Execute tests
-	executor := execute.NewTmpExecutor()
+	executor := execute.NewGoExecutor()
 
-	execResult, err := executor.ExecuteTest(mod, sym.Package.ImportPath, "-v")
+	// Create a simple environment for test execution
+	env := &materialize.Environment{}
+
+	execResult, err := executor.ExecuteTest(env, mod, sym.Package.ImportPath, "-v")
 	if err != nil {
 		return nil, err
 	}

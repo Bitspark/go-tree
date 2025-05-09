@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
+	"bitspark.dev/go-tree/pkg/io/materialize"
 	"bitspark.dev/go-tree/pkg/run/execute"
 	"bitspark.dev/go-tree/pkg/run/testing/common"
 )
@@ -13,11 +14,11 @@ import (
 // Runner implements the TestRunner interface
 type Runner struct {
 	// Executor for running tests
-	Executor execute.ModuleExecutor
+	Executor execute.Executor
 }
 
 // NewRunner creates a new test runner
-func NewRunner(executor execute.ModuleExecutor) *Runner {
+func NewRunner(executor execute.Executor) *Runner {
 	if executor == nil {
 		executor = execute.NewGoExecutor()
 	}
@@ -55,8 +56,11 @@ func (r *Runner) RunTests(mod *typesys.Module, pkgPath string, opts *common.RunO
 		}
 	}
 
+	// Create a simple environment for test execution
+	env := &materialize.Environment{}
+
 	// Execute tests
-	execResult, execErr := r.Executor.ExecuteTest(mod, pkgPath, testFlags...)
+	execResult, execErr := r.Executor.ExecuteTest(env, mod, pkgPath, testFlags...)
 
 	// Create result regardless of error (error might just indicate test failures)
 	result := &common.TestResult{
@@ -92,9 +96,12 @@ func (r *Runner) AnalyzeCoverage(mod *typesys.Module, pkgPath string) (*common.C
 		pkgPath = "./..."
 	}
 
+	// Create a simple environment for test execution
+	env := &materialize.Environment{}
+
 	// Run tests with coverage
 	testFlags := []string{"-cover", "-coverprofile=coverage.out"}
-	execResult, err := r.Executor.ExecuteTest(mod, pkgPath, testFlags...)
+	execResult, err := r.Executor.ExecuteTest(env, mod, pkgPath, testFlags...)
 	if err != nil {
 		// Don't fail completely if tests failed, we might still have partial coverage
 		fmt.Printf("Warning: tests failed but continuing with coverage analysis: %v\n", err)

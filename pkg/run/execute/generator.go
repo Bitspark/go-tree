@@ -3,219 +3,147 @@ package execute
 import (
 	"fmt"
 	"go/format"
-	"go/types"
 	"strings"
 	"text/template"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
 )
 
-// TypeAwareCodeGenerator generates code with type checking
-type TypeAwareCodeGenerator struct {
-	// Module containing the code to execute
-	Module *typesys.Module
+// TypeAwareGenerator generates type-aware code for function execution
+type TypeAwareGenerator struct{}
+
+// NewTypeAwareGenerator creates a new type-aware generator
+func NewTypeAwareGenerator() *TypeAwareGenerator {
+	return &TypeAwareGenerator{}
 }
 
-// NewTypeAwareCodeGenerator creates a new code generator for the given module
-func NewTypeAwareCodeGenerator(module *typesys.Module) *TypeAwareCodeGenerator {
-	return &TypeAwareCodeGenerator{
-		Module: module,
-	}
-}
+// GenerateFunctionWrapper generates a wrapper program to execute a function
+func (g *TypeAwareGenerator) GenerateFunctionWrapper(
+	module *typesys.Module,
+	funcSymbol *typesys.Symbol,
+	args ...interface{}) (string, error) {
 
-// GenerateExecWrapper generates code to call a function with proper type checking
-func (g *TypeAwareCodeGenerator) GenerateExecWrapper(funcSymbol *typesys.Symbol, args ...interface{}) (string, error) {
-	if funcSymbol == nil {
-		return "", fmt.Errorf("function symbol cannot be nil")
+	if module == nil || funcSymbol == nil {
+		return "", fmt.Errorf("module and function symbol cannot be nil")
 	}
 
 	if funcSymbol.Kind != typesys.KindFunction && funcSymbol.Kind != typesys.KindMethod {
-		return "", fmt.Errorf("symbol %s is not a function or method", funcSymbol.Name)
+		return "", fmt.Errorf("symbol is not a function or method: %s", funcSymbol.Name)
 	}
 
-	// Validate arguments match parameter types
-	if err := g.ValidateArguments(funcSymbol, args...); err != nil {
-		return "", err
-	}
+	// Get package information
+	pkgPath := funcSymbol.Package.ImportPath
+	pkgName := funcSymbol.Package.Name
 
-	// Generate argument conversions
-	argConversions, err := g.GenerateArgumentConversions(funcSymbol, args...)
+	// Generate argument conversion
+	argValues, argTypes, err := generateArguments(args)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to generate arguments: %w", err)
 	}
 
-	// Build the wrapper program template data
+	// Determine return type handling
+	hasReturnValues, returnTypes := analyzeReturnTypes(funcSymbol)
+
+	// Prepare template data
 	data := struct {
 		PackagePath     string
 		PackageName     string
 		FunctionName    string
-		ReceiverType    string
-		IsMethod        bool
-		ArgConversions  string
-		ParamCount      []int
+		ArgValues       string
+		ArgTypes        string
 		HasReturnValues bool
 		ReturnTypes     string
+		IsMethod        bool
+		ReceiverType    string
+		ModulePath      string
 	}{
-		PackagePath:     funcSymbol.Package.ImportPath,
-		PackageName:     funcSymbol.Package.Name,
+		PackagePath:     pkgPath,
+		PackageName:     pkgName,
 		FunctionName:    funcSymbol.Name,
+		ArgValues:       argValues,
+		ArgTypes:        argTypes,
+		HasReturnValues: hasReturnValues,
+		ReturnTypes:     returnTypes,
 		IsMethod:        funcSymbol.Kind == typesys.KindMethod,
-		ArgConversions:  argConversions,
-		ParamCount:      make([]int, len(args)), // Initialize with the number of arguments
-		HasReturnValues: false,                  // Will be set below
-		ReturnTypes:     "",                     // Will be set below
+		ReceiverType:    "", // Will be populated if it's a method
+		ModulePath:      module.Path,
 	}
 
-	// Fill the ParamCount with indices (0, 1, 2, etc.)
-	for i := range data.ParamCount {
-		data.ParamCount[i] = i
-	}
-
-	// Handle method receiver if this is a method
-	if data.IsMethod {
-		// This is a placeholder - we would need to get actual receiver type from the type info
-		// In a real implementation, this would use funcSymbol.TypeObj and type info
-		data.ReceiverType = "ReceiverType" // Need to extract from TypeObj
-	}
-
-	// Build return type information
-	if funcTypeObj, ok := funcSymbol.TypeObj.(*types.Func); ok {
-		sig := funcTypeObj.Type().(*types.Signature)
-
-		// Check if the function has return values
-		if sig.Results().Len() > 0 {
-			data.HasReturnValues = true
-
-			// Build return type string
-			var returnTypes []string
-			for i := 0; i < sig.Results().Len(); i++ {
-				returnTypes = append(returnTypes, sig.Results().At(i).Type().String())
-			}
-
-			// If multiple return values, wrap in parentheses
-			if len(returnTypes) > 1 {
-				data.ReturnTypes = "(" + strings.Join(returnTypes, ", ") + ")"
-			} else {
-				data.ReturnTypes = returnTypes[0]
-			}
-		}
-	}
-
-	// Create template with a custom function to check if an index is the last one
-	funcMap := template.FuncMap{
-		"isLast": func(index int, arr []int) bool {
-			return index == len(arr)-1
-		},
-	}
-
-	// Apply the template
-	tmpl, err := template.New("execWrapper").Funcs(funcMap).Parse(execWrapperTemplate)
+	// Apply template
+	var buf strings.Builder
+	tmpl, err := template.New("wrapper").Parse(functionWrapperTemplate)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse template: %w", err)
 	}
 
-	var buf strings.Builder
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return "", fmt.Errorf("failed to execute template: %w", err)
 	}
 
-	// Format the generated code
-	source := buf.String()
-	formatted, err := format.Source([]byte(source))
+	// Format the code
+	formattedCode, err := format.Source([]byte(buf.String()))
 	if err != nil {
-		// If formatting fails, return the unformatted code
-		return source, fmt.Errorf("failed to format generated code: %w", err)
+		// If formatting fails, return the unformatted code with a warning
+		return buf.String(), fmt.Errorf("generated valid but unformatted code: %w", err)
 	}
 
-	return string(formatted), nil
+	return string(formattedCode), nil
 }
 
-// ValidateArguments verifies that the provided arguments match the function's parameter types
-func (g *TypeAwareCodeGenerator) ValidateArguments(funcSymbol *typesys.Symbol, args ...interface{}) error {
-	if funcSymbol.TypeObj == nil {
-		return fmt.Errorf("function %s has no type information", funcSymbol.Name)
+// GenerateTestWrapper generates a test driver for a specific test function
+func (g *TypeAwareGenerator) GenerateTestWrapper(module *typesys.Module, testSymbol *typesys.Symbol) (string, error) {
+	if module == nil || testSymbol == nil {
+		return "", fmt.Errorf("module and test symbol cannot be nil")
 	}
 
-	// Get the function signature
-	funcTypeObj, ok := funcSymbol.TypeObj.(*types.Func)
-	if !ok {
-		return fmt.Errorf("symbol %s is not a function", funcSymbol.Name)
-	}
-
-	sig := funcTypeObj.Type().(*types.Signature)
-	params := sig.Params()
-
-	// Check if the number of arguments matches (accounting for variadic functions)
-	isVariadic := sig.Variadic()
-	minArgs := params.Len()
-	if isVariadic {
-		minArgs--
-	}
-
-	if len(args) < minArgs {
-		return fmt.Errorf("not enough arguments: expected at least %d, got %d", minArgs, len(args))
-	}
-
-	if !isVariadic && len(args) > params.Len() {
-		return fmt.Errorf("too many arguments: expected %d, got %d", params.Len(), len(args))
-	}
-
-	// Type checking for individual arguments would go here
-	// This is a simplified version that just performs count checking
-	// A real implementation would do more sophisticated type compatibility checks
-
-	return nil
+	// This is a placeholder implementation
+	// A real implementation would generate a test driver specific to the test function
+	return "", fmt.Errorf("test wrapper generation not implemented yet")
 }
 
-// GenerateArgumentConversions creates code to convert runtime values to the expected types
-func (g *TypeAwareCodeGenerator) GenerateArgumentConversions(funcSymbol *typesys.Symbol, args ...interface{}) (string, error) {
-	if funcSymbol.TypeObj == nil {
-		return "", fmt.Errorf("function %s has no type information", funcSymbol.Name)
-	}
+// Helper functions
 
-	// Get the function signature
-	funcTypeObj, ok := funcSymbol.TypeObj.(*types.Func)
-	if !ok {
-		return "", fmt.Errorf("symbol %s is not a function", funcSymbol.Name)
-	}
+// generateArguments converts the provided arguments to Go code strings
+func generateArguments(args []interface{}) (string, string, error) {
+	var argValues []string
+	var argTypes []string
 
-	sig := funcTypeObj.Type().(*types.Signature)
-	params := sig.Params()
-	isVariadic := sig.Variadic()
-
-	var conversions []string
-
-	// Generate conversions for each argument
-	// This is a simplified implementation - a real one would generate proper conversion code
-	// based on the actual types of the arguments and parameters
-	for i := 0; i < params.Len(); i++ {
-		param := params.At(i)
-		paramType := param.Type().String()
-
-		if isVariadic && i == params.Len()-1 {
-			// Handle variadic parameter
-			variadicType := strings.TrimPrefix(paramType, "...") // Remove "..." prefix
-
-			// Generate code to collect remaining arguments into a slice
-			conversions = append(conversions, fmt.Sprintf("// Convert variadic arguments to %s", paramType))
-			conversions = append(conversions, fmt.Sprintf("var arg%d []%s", i, variadicType))
-			conversions = append(conversions, fmt.Sprintf("for _, v := range args[%d:] {", i))
-			conversions = append(conversions, fmt.Sprintf("    arg%d = append(arg%d, v.(%s))", i, i, variadicType))
-			conversions = append(conversions, "}")
-
-			break // We've handled all remaining arguments as variadic
-		} else if i < len(args) {
-			// Regular parameter - generate type assertion or conversion
-			conversions = append(conversions, fmt.Sprintf("// Convert argument %d to %s", i, paramType))
-			conversions = append(conversions, fmt.Sprintf("arg%d := args[%d].(%s)", i, i, paramType))
+	for i, arg := range args {
+		switch v := arg.(type) {
+		case string:
+			argValues = append(argValues, fmt.Sprintf("%q", v))
+			argTypes = append(argTypes, "string")
+		case int:
+			argValues = append(argValues, fmt.Sprintf("%d", v))
+			argTypes = append(argTypes, "int")
+		case float64:
+			argValues = append(argValues, fmt.Sprintf("%f", v))
+			argTypes = append(argTypes, "float64")
+		case bool:
+			argValues = append(argValues, fmt.Sprintf("%t", v))
+			argTypes = append(argTypes, "bool")
+		default:
+			// For more complex types, use fmt.Sprintf("%#v", v)
+			argValues = append(argValues, fmt.Sprintf("%#v", v))
+			argTypes = append(argTypes, fmt.Sprintf("interface{} /* arg %d */", i))
 		}
 	}
 
-	return strings.Join(conversions, "\n"), nil
+	return strings.Join(argValues, ", "), strings.Join(argTypes, ", "), nil
 }
 
-// execWrapperTemplate is the template for the function execution wrapper
-const execWrapperTemplate = `package main
+// analyzeReturnTypes examines a function symbol to determine its return types
+func analyzeReturnTypes(funcSymbol *typesys.Symbol) (bool, string) {
+	// This is a simplified implementation
+	// A real implementation would extract the return types from the symbol's type information
+
+	// For now, we'll assume all functions return a generic interface{}
+	return true, "interface{}"
+}
+
+// Template for the function wrapper
+const functionWrapperTemplate = `// Generated wrapper for executing {{.FunctionName}}
+package main
 
 import (
 	"encoding/json"
@@ -226,20 +154,15 @@ import (
 	pkg "{{.PackagePath}}"
 )
 
-// main function that will call the target function and output the results
 func main() {
-	// Convert arguments to the proper types
-	{{.ArgConversions}}
-	
-	{{if .HasReturnValues}}
 	// Call the function
+	{{if .HasReturnValues}}
 	{{if .IsMethod}}
-	// Need to initialize a receiver of the proper type
-	var receiver {{.ReceiverType}}
-	result := receiver.{{.FunctionName}}({{range $i := .ParamCount}}arg{{$i}}{{if not (isLast $i $.ParamCount)}}, {{end}}{{end}})
+	// Method execution not fully implemented yet
+	fmt.Fprintf(os.Stderr, "Method execution not implemented")
+	os.Exit(1)
 	{{else}}
-	result := pkg.{{.FunctionName}}({{range $i := .ParamCount}}arg{{$i}}{{if not (isLast $i $.ParamCount)}}, {{end}}{{end}})
-	{{end}}
+	result := pkg.{{.FunctionName}}({{.ArgValues}})
 	
 	// Encode the result to JSON and print it
 	jsonResult, err := json.Marshal(result)
@@ -247,18 +170,13 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error marshaling result: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println(string(jsonResult))
-	{{else}}
-	// Call the function with no return values
-	{{if .IsMethod}}
-	// Need to initialize a receiver of the proper type
-	var receiver {{.ReceiverType}}
-	receiver.{{.FunctionName}}({{range $i := .ParamCount}}arg{{$i}}{{if not (isLast $i $.ParamCount)}}, {{end}}{{end}})
-	{{else}}
-	pkg.{{.FunctionName}}({{range $i := .ParamCount}}arg{{$i}}{{if not (isLast $i $.ParamCount)}}, {{end}}{{end}})
-	{{end}}
 	
-	// Signal successful completion
+	fmt.Println(string(jsonResult))
+	{{end}}
+	{{else}}
+	// Function has no return values
+	pkg.{{.FunctionName}}({{.ArgValues}})
 	fmt.Println("{\"success\":true}")
 	{{end}}
-}`
+}
+`
