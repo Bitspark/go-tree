@@ -2,13 +2,13 @@ package materialize
 
 import (
 	"bytes"
+	"context"
 	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"bitspark.dev/go-tree/pkg/saver"
+	"bitspark.dev/go-tree/pkg/toolkit"
 	"bitspark.dev/go-tree/pkg/typesys"
 )
 
@@ -16,6 +16,12 @@ import (
 type ModuleMaterializer struct {
 	Options MaterializeOptions
 	Saver   saver.ModuleSaver
+
+	// Toolchain for Go operations
+	toolchain toolkit.GoToolchain
+
+	// Filesystem for module operations
+	fs toolkit.ModuleFS
 }
 
 // NewModuleMaterializer creates a new materializer with default options
@@ -26,9 +32,23 @@ func NewModuleMaterializer() *ModuleMaterializer {
 // NewModuleMaterializerWithOptions creates a new materializer with the specified options
 func NewModuleMaterializerWithOptions(options MaterializeOptions) *ModuleMaterializer {
 	return &ModuleMaterializer{
-		Options: options,
-		Saver:   saver.NewGoModuleSaver(),
+		Options:   options,
+		Saver:     saver.NewGoModuleSaver(),
+		toolchain: toolkit.NewStandardGoToolchain(),
+		fs:        toolkit.NewStandardModuleFS(),
 	}
+}
+
+// WithToolchain sets a custom toolchain
+func (m *ModuleMaterializer) WithToolchain(toolchain toolkit.GoToolchain) *ModuleMaterializer {
+	m.toolchain = toolchain
+	return m
+}
+
+// WithFS sets a custom filesystem
+func (m *ModuleMaterializer) WithFS(fs toolkit.ModuleFS) *ModuleMaterializer {
+	m.fs = fs
+	return m
 }
 
 // Materialize writes a module to disk with dependencies
@@ -47,15 +67,19 @@ func (m *ModuleMaterializer) MaterializeForExecution(module *typesys.Module, opt
 	if opts.RunGoModTidy {
 		modulePath, ok := env.ModulePaths[module.Path]
 		if ok {
-			// Run go mod tidy
-			cmd := exec.Command("go", "mod", "tidy")
-			cmd.Dir = modulePath
+			// Create context for toolchain operations
+			ctx := context.Background()
 
+			// Run go mod tidy using toolchain abstraction
 			if opts.Verbose {
 				fmt.Printf("Running go mod tidy in %s\n", modulePath)
 			}
 
-			output, err := cmd.CombinedOutput()
+			// Set working directory for the command
+			customToolchain := *m.toolchain.(*toolkit.StandardGoToolchain)
+			customToolchain.WorkDir = modulePath
+
+			output, err := customToolchain.RunCommand(ctx, "mod", "tidy")
 			if err != nil {
 				return env, &MaterializationError{
 					ModulePath: module.Path,
@@ -89,7 +113,7 @@ func (m *ModuleMaterializer) materializeModules(modules []*typesys.Module, opts 
 	if rootDir == "" {
 		// Create a temporary directory
 		var err error
-		rootDir, err = os.MkdirTemp("", "go-tree-materialized-*")
+		rootDir, err = m.fs.TempDir("", "go-tree-materialized-*")
 		if err != nil {
 			return nil, &MaterializationError{
 				Message: "failed to create temporary directory",
@@ -99,7 +123,7 @@ func (m *ModuleMaterializer) materializeModules(modules []*typesys.Module, opts 
 		isTemporary = true
 	} else {
 		// Ensure the directory exists
-		if err := os.MkdirAll(rootDir, 0755); err != nil {
+		if err := m.fs.MkdirAll(rootDir, 0755); err != nil {
 			return nil, &MaterializationError{
 				Message: "failed to create target directory",
 				Err:     err,
@@ -155,7 +179,7 @@ func (m *ModuleMaterializer) materializeModule(module *typesys.Module, rootDir s
 	}
 
 	// Create module directory
-	if err := os.MkdirAll(moduleDir, 0755); err != nil {
+	if err := m.fs.MkdirAll(moduleDir, 0755); err != nil {
 		return &MaterializationError{
 			ModulePath: module.Path,
 			Message:    "failed to create module directory",
@@ -194,7 +218,7 @@ func (m *ModuleMaterializer) materializeModule(module *typesys.Module, rootDir s
 func (m *ModuleMaterializer) materializeDependencies(module *typesys.Module, rootDir string, env *Environment, opts MaterializeOptions) error {
 	// Parse the go.mod file to get dependencies
 	goModPath := filepath.Join(module.Dir, "go.mod")
-	content, err := os.ReadFile(goModPath)
+	content, err := m.fs.ReadFile(goModPath)
 	if err != nil {
 		return &MaterializationError{
 			ModulePath: module.Path,
@@ -270,7 +294,8 @@ func (m *ModuleMaterializer) materializeDependencies(module *typesys.Module, roo
 		} else {
 			// No replacement - regular dependency
 			// Try to find the module in the module cache
-			depDir, err := findModuleInCache(depPath, version)
+			ctx := context.Background()
+			depDir, err := m.toolchain.FindModule(ctx, depPath, version)
 			if err != nil {
 				if opts.Verbose {
 					fmt.Printf("Warning: could not find module %s@%s in cache: %v\n", depPath, version, err)
@@ -335,7 +360,7 @@ func (m *ModuleMaterializer) materializeLocalModule(srcDir, modulePath, rootDir 
 	}
 
 	// Create module directory
-	if err := os.MkdirAll(moduleDir, 0755); err != nil {
+	if err := m.fs.MkdirAll(moduleDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create module directory: %w", err)
 	}
 
@@ -353,64 +378,11 @@ func (m *ModuleMaterializer) materializeLocalModule(srcDir, modulePath, rootDir 
 	return moduleDir, nil
 }
 
-// findModuleInCache tries to locate a module in the Go module cache
-func findModuleInCache(importPath, version string) (string, error) {
-	// Check GOPATH/pkg/mod
-	gopath := os.Getenv("GOPATH")
-	if gopath == "" {
-		// Fall back to default GOPATH if not set
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("GOPATH not set and could not determine home directory: %w", err)
-		}
-		gopath = filepath.Join(home, "go")
-	}
-
-	// Check GOMODCACHE if available (introduced in Go 1.15)
-	gomodcache := os.Getenv("GOMODCACHE")
-	if gomodcache == "" {
-		// Default location is $GOPATH/pkg/mod
-		gomodcache = filepath.Join(gopath, "pkg", "mod")
-	}
-
-	// Format the expected path in the module cache
-	// Module paths use @ as a separator between the module path and version
-	modPath := filepath.Join(gomodcache, importPath+"@"+version)
-	if _, err := os.Stat(modPath); err == nil {
-		return modPath, nil
-	}
-
-	// Check if it's using a different version format (v prefix vs non-prefix)
-	if len(version) > 0 && version[0] == 'v' {
-		// Try without v prefix
-		altVersion := version[1:]
-		altModPath := filepath.Join(gomodcache, importPath+"@"+altVersion)
-		if _, err := os.Stat(altModPath); err == nil {
-			return altModPath, nil
-		}
-	} else {
-		// Try with v prefix
-		altVersion := "v" + version
-		altModPath := filepath.Join(gomodcache, importPath+"@"+altVersion)
-		if _, err := os.Stat(altModPath); err == nil {
-			return altModPath, nil
-		}
-	}
-
-	// Check in old-style GOPATH mode (pre-modules)
-	oldStylePath := filepath.Join(gopath, "src", importPath)
-	if _, err := os.Stat(oldStylePath); err == nil {
-		return oldStylePath, nil
-	}
-
-	return "", fmt.Errorf("module %s@%s not found in module cache or GOPATH", importPath, version)
-}
-
 // generateGoMod generates or updates the go.mod file for a materialized module
 func (m *ModuleMaterializer) generateGoMod(module *typesys.Module, moduleDir string, env *Environment, opts MaterializeOptions) error {
 	// Read the original go.mod
 	originalGoModPath := filepath.Join(module.Dir, "go.mod")
-	content, err := os.ReadFile(originalGoModPath)
+	content, err := m.fs.ReadFile(originalGoModPath)
 	if err != nil {
 		return &MaterializationError{
 			ModulePath: module.Path,
@@ -498,7 +470,7 @@ func (m *ModuleMaterializer) generateGoMod(module *typesys.Module, moduleDir str
 			if len(replacePaths) == 1 {
 				// Single replacement, write as a standalone replace
 				for path, replacement := range replacePaths {
-					buf.WriteString(fmt.Sprintf("replace %s => %s\n\n", path, replacement))
+					buf.WriteString(fmt.Sprintf("replace %s => %s\n", path, replacement))
 				}
 			} else {
 				// Multiple replacements, write as a block
@@ -506,14 +478,14 @@ func (m *ModuleMaterializer) generateGoMod(module *typesys.Module, moduleDir str
 				for path, replacement := range replacePaths {
 					buf.WriteString(fmt.Sprintf("\t%s => %s\n", path, replacement))
 				}
-				buf.WriteString(")\n\n")
+				buf.WriteString(")\n")
 			}
 		}
 	}
 
 	// Write the new go.mod file
 	targetGoModPath := filepath.Join(moduleDir, "go.mod")
-	if err := os.WriteFile(targetGoModPath, buf.Bytes(), 0644); err != nil {
+	if err := m.fs.WriteFile(targetGoModPath, buf.Bytes(), 0644); err != nil {
 		return &MaterializationError{
 			ModulePath: module.Path,
 			Message:    "failed to write go.mod file",

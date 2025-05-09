@@ -48,6 +48,12 @@ type ResolveOptions struct {
 	// Policy for dependency resolution
 	DependencyPolicy DependencyPolicy
 
+	// Whether to error on circular dependencies (strict) or just log and continue
+	StrictCircularDeps bool
+
+	// Whether to use caching for resolution performance
+	UseResolutionCache bool
+
 	// Enable verbose logging
 	Verbose bool
 }
@@ -55,12 +61,14 @@ type ResolveOptions struct {
 // DefaultResolveOptions returns a ResolveOptions with default values
 func DefaultResolveOptions() ResolveOptions {
 	return ResolveOptions{
-		IncludeTests:     false,
-		IncludePrivate:   true,
-		DependencyDepth:  1,
-		DownloadMissing:  true,
-		VersionPolicy:    LenientVersionPolicy,
-		DependencyPolicy: AllDependencies,
-		Verbose:          false,
+		IncludeTests:       false,
+		IncludePrivate:     true,
+		DependencyDepth:    1,
+		DownloadMissing:    true,
+		VersionPolicy:      LenientVersionPolicy,
+		DependencyPolicy:   AllDependencies,
+		StrictCircularDeps: false,
+		UseResolutionCache: true,
+		Verbose:            false,
 	}
 }

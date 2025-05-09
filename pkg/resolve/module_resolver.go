@@ -1,13 +1,14 @@
 package resolve
 
 import (
+	"context"
 	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"bitspark.dev/go-tree/pkg/loader"
+	"bitspark.dev/go-tree/pkg/toolkit"
 	"bitspark.dev/go-tree/pkg/typesys"
 )
 
@@ -27,6 +28,15 @@ type ModuleResolver struct {
 
 	// Parsed go.mod replacements: map[moduleDir]map[importPath]replacement
 	replacements map[string]map[string]string
+
+	// Toolchain for Go operations
+	toolchain toolkit.GoToolchain
+
+	// Filesystem for module operations
+	fs toolkit.ModuleFS
+
+	// Middleware chain for resolution
+	middlewareChain *toolkit.MiddlewareChain
 }
 
 // NewModuleResolver creates a new module resolver with default options
@@ -42,15 +52,49 @@ func NewModuleResolverWithOptions(options ResolveOptions) *ModuleResolver {
 		locationCache:   make(map[string]string),
 		inProgress:      make(map[string]bool),
 		replacements:    make(map[string]map[string]string),
+		toolchain:       toolkit.NewStandardGoToolchain(),
+		fs:              toolkit.NewStandardModuleFS(),
+		middlewareChain: toolkit.NewMiddlewareChain(),
 	}
+}
+
+// WithToolchain sets a custom toolchain
+func (r *ModuleResolver) WithToolchain(toolchain toolkit.GoToolchain) *ModuleResolver {
+	r.toolchain = toolchain
+	return r
+}
+
+// WithFS sets a custom filesystem
+func (r *ModuleResolver) WithFS(fs toolkit.ModuleFS) *ModuleResolver {
+	r.fs = fs
+	return r
+}
+
+// Use adds middleware to the chain
+func (r *ModuleResolver) Use(middleware ...toolkit.ResolutionMiddleware) *ModuleResolver {
+	r.middlewareChain.Add(middleware...)
+	return r
 }
 
 // ResolveModule resolves a module by path and version
 func (r *ModuleResolver) ResolveModule(path, version string, opts ResolveOptions) (*typesys.Module, error) {
+	// Create context for toolchain operations
+	ctx := context.Background()
+
+	// Apply any options from the middleware chain
+	if opts.UseResolutionCache && r.middlewareChain != nil {
+		// Add caching middleware if enabled
+		r.middlewareChain.Add(toolkit.NewCachingMiddleware())
+	}
+
 	// Try to find the module location
 	moduleDir, err := r.FindModuleLocation(path, version)
 	if err != nil {
 		if opts.DownloadMissing {
+			if opts.Verbose {
+				fmt.Printf("Module %s@%s not found, attempting to download...\n", path, version)
+			}
+
 			moduleDir, err = r.EnsureModuleAvailable(path, version)
 			if err != nil {
 				return nil, &ResolutionError{
@@ -60,27 +104,48 @@ func (r *ModuleResolver) ResolveModule(path, version string, opts ResolveOptions
 					Err:        err,
 				}
 			}
+
+			if opts.Verbose {
+				fmt.Printf("Successfully downloaded module %s@%s to %s\n", path, version, moduleDir)
+			}
 		} else {
 			return nil, &ResolutionError{
 				ImportPath: path,
 				Version:    version,
-				Reason:     "could not locate module",
+				Reason:     "could not locate module and auto-download is disabled",
 				Err:        err,
 			}
 		}
 	}
 
-	// Load the module
-	module, err := loader.LoadModule(moduleDir, &typesys.LoadOptions{
-		IncludeTests: opts.IncludeTests,
-	})
-	if err != nil {
-		return nil, &ResolutionError{
-			ImportPath: path,
-			Version:    version,
-			Reason:     "could not load module",
-			Err:        err,
+	// Execute middleware chain or directly load the module
+	var module *typesys.Module
+
+	// Create resolution function for middleware chain or direct execution
+	resolveFunc := func() (*typesys.Module, error) {
+		mod, err := loader.LoadModule(moduleDir, &typesys.LoadOptions{
+			IncludeTests: opts.IncludeTests,
+		})
+		if err != nil {
+			return nil, &ResolutionError{
+				ImportPath: path,
+				Version:    version,
+				Reason:     "could not load module",
+				Err:        err,
+			}
 		}
+		return mod, nil
+	}
+
+	// If middleware chain is empty, execute directly
+	if r.middlewareChain != nil && len(r.middlewareChain.Middlewares()) > 0 {
+		module, err = r.middlewareChain.Execute(ctx, path, version, resolveFunc)
+	} else {
+		module, err = resolveFunc()
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	// Cache the resolved module
@@ -105,8 +170,31 @@ func (r *ModuleResolver) ResolveModule(path, version string, opts ResolveOptions
 	return module, nil
 }
 
+// CircularDependencyError represents a circular dependency detection error
+type CircularDependencyError struct {
+	ImportPath string
+	Version    string
+	Module     string
+	Path       []string
+}
+
+// Error returns a string representation of the error
+func (e *CircularDependencyError) Error() string {
+	return fmt.Sprintf("circular dependency detected: %s@%s in path: %s",
+		e.ImportPath, e.Version, strings.Join(e.Path, " -> "))
+}
+
 // ResolveDependencies resolves dependencies for a module
 func (r *ModuleResolver) ResolveDependencies(module *typesys.Module, depth int) error {
+	// Create initial resolution path
+	path := []string{module.Path}
+
+	// Call helper function with path tracking
+	return r.resolveDependenciesWithPath(module, depth, path)
+}
+
+// resolveDependenciesWithPath resolves dependencies with path tracking for circular dependency detection
+func (r *ModuleResolver) resolveDependenciesWithPath(module *typesys.Module, depth int, path []string) error {
 	// Skip if we've reached max depth
 	if r.Options.DependencyDepth > 0 && depth >= r.Options.DependencyDepth {
 		if r.Options.Verbose {
@@ -118,7 +206,7 @@ func (r *ModuleResolver) ResolveDependencies(module *typesys.Module, depth int) 
 
 	// Read the go.mod file
 	goModPath := filepath.Join(module.Dir, "go.mod")
-	content, err := os.ReadFile(goModPath)
+	content, err := r.fs.ReadFile(goModPath)
 	if err != nil {
 		return &ResolutionError{
 			Module: module.Path,
@@ -147,8 +235,40 @@ func (r *ModuleResolver) ResolveDependencies(module *typesys.Module, depth int) 
 			continue
 		}
 
-		// Try to load the dependency
-		if err := r.loadDependency(module, importPath, version, depth); err != nil {
+		// Check for circular dependency
+		depKey := importPath + "@" + version
+		if r.inProgress[depKey] {
+			// Check if we should treat this as an error
+			if r.Options.StrictCircularDeps {
+				return &CircularDependencyError{
+					ImportPath: importPath,
+					Version:    version,
+					Module:     module.Path,
+					Path:       append(path, importPath),
+				}
+			}
+
+			// Just log and continue
+			if r.Options.Verbose {
+				fmt.Printf("Circular dependency detected: %s -> %s\n",
+					strings.Join(path, " -> "), importPath)
+			}
+			continue
+		}
+
+		// Mark as in progress
+		r.inProgress[depKey] = true
+		defer func(key string) {
+			// Remove from in-progress when done
+			delete(r.inProgress, key)
+		}(depKey)
+
+		// Build new path for this dependency
+		newPath := append([]string{}, path...)
+		newPath = append(newPath, importPath)
+
+		// Try to load the dependency with path tracking
+		if err := r.loadDependencyWithPath(module, importPath, version, depth, newPath); err != nil {
 			// Log error but continue with other dependencies
 			if r.Options.Verbose {
 				fmt.Printf("Warning: %v\n", err)
@@ -159,26 +279,9 @@ func (r *ModuleResolver) ResolveDependencies(module *typesys.Module, depth int) 
 	return nil
 }
 
-// loadDependency loads a single dependency, considering replacements
-func (r *ModuleResolver) loadDependency(fromModule *typesys.Module, importPath, version string, depth int) error {
-	// Check for circular dependency
-	depKey := importPath + "@" + version
-	if r.inProgress[depKey] {
-		// We're already loading this dependency, circular reference detected
-		if r.Options.Verbose {
-			fmt.Printf("Circular dependency detected: %s\n", depKey)
-		}
-		return nil // Don't treat as error, just stop the recursion
-	}
-
-	// Mark as in progress
-	r.inProgress[depKey] = true
-	defer func() {
-		// Remove from in-progress when done
-		delete(r.inProgress, depKey)
-	}()
-
-	// Check for a replacement
+// loadDependencyWithPath loads a single dependency with path tracking for circular dependency detection
+func (r *ModuleResolver) loadDependencyWithPath(fromModule *typesys.Module, importPath, version string, depth int, path []string) error {
+	// Handle replacement first
 	replacements := r.replacements[fromModule.Dir]
 	replacement, hasReplacement := replacements[importPath]
 
@@ -263,11 +366,11 @@ func (r *ModuleResolver) loadDependency(fromModule *typesys.Module, importPath, 
 	}
 
 	// Store the resolved module
-	r.resolvedModules[depKey] = depModule
+	r.resolvedModules[importPath+"@"+version] = depModule
 
-	// Recursively load this module's dependencies with incremented depth
+	// Recursively load this module's dependencies with incremented depth and path
 	newDepth := depth + 1
-	if err := r.ResolveDependencies(depModule, newDepth); err != nil {
+	if err := r.resolveDependenciesWithPath(depModule, newDepth, path); err != nil {
 		// Log but continue
 		if r.Options.Verbose {
 			fmt.Printf("Warning: %v\n", err)
@@ -279,6 +382,9 @@ func (r *ModuleResolver) loadDependency(fromModule *typesys.Module, importPath, 
 
 // FindModuleLocation finds a module's location in the filesystem
 func (r *ModuleResolver) FindModuleLocation(importPath, version string) (string, error) {
+	// Create context for toolchain operations
+	ctx := context.Background()
+
 	// Check cache first
 	cacheKey := importPath
 	if version != "" {
@@ -289,73 +395,22 @@ func (r *ModuleResolver) FindModuleLocation(importPath, version string) (string,
 		return cachedDir, nil
 	}
 
-	// Check GOPATH/pkg/mod
-	gopath := os.Getenv("GOPATH")
-	if gopath == "" {
-		// Fall back to default GOPATH if not set
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("GOPATH not set and could not determine home directory: %w", err)
-		}
-		gopath = filepath.Join(home, "go")
-	}
-
-	// Check GOMODCACHE if available (introduced in Go 1.15)
-	gomodcache := os.Getenv("GOMODCACHE")
-	if gomodcache == "" {
-		// Default location is $GOPATH/pkg/mod
-		gomodcache = filepath.Join(gopath, "pkg", "mod")
-	}
-
-	// If version is specified, try the module cache
-	if version != "" {
-		// Format the expected path in the module cache
-		// Module paths use @ as a separator between the module path and version
-		modPath := filepath.Join(gomodcache, importPath+"@"+version)
-		if _, err := os.Stat(modPath); err == nil {
-			// Cache the result before returning
-			r.locationCache[cacheKey] = modPath
-			return modPath, nil
-		}
-
-		// Check if it's using a different version format (v prefix vs non-prefix)
-		if len(version) > 0 && version[0] == 'v' {
-			// Try without v prefix
-			altVersion := version[1:]
-			altModPath := filepath.Join(gomodcache, importPath+"@"+altVersion)
-			if _, err := os.Stat(altModPath); err == nil {
-				// Cache the result before returning
-				r.locationCache[cacheKey] = altModPath
-				return altModPath, nil
-			}
-		} else {
-			// Try with v prefix
-			altVersion := "v" + version
-			altModPath := filepath.Join(gomodcache, importPath+"@"+altVersion)
-			if _, err := os.Stat(altModPath); err == nil {
-				// Cache the result before returning
-				r.locationCache[cacheKey] = altModPath
-				return altModPath, nil
-			}
-		}
-	}
-
-	// Check in old-style GOPATH mode (pre-modules)
-	oldStylePath := filepath.Join(gopath, "src", importPath)
-	if _, err := os.Stat(oldStylePath); err == nil {
+	// Use toolchain to find the module
+	modPath, err := r.toolchain.FindModule(ctx, importPath, version)
+	if err == nil {
 		// Cache the result before returning
-		r.locationCache[cacheKey] = oldStylePath
-		return oldStylePath, nil
+		r.locationCache[cacheKey] = modPath
+		return modPath, nil
 	}
 
-	// Try to use go list -m to find the module
+	// Try to use go list -m to find the module if no version is specified
 	if version == "" {
 		// If no version is specified, try to find the latest
 		path, ver, err := r.resolveModuleInfo(importPath)
 		if err == nil && path != "" {
 			// Try the official version returned by go list
-			modPath := filepath.Join(gomodcache, path+"@"+ver)
-			if _, err := os.Stat(modPath); err == nil {
+			modPath, err := r.toolchain.FindModule(ctx, path, ver)
+			if err == nil {
 				// Cache the result before returning
 				r.locationCache[cacheKey] = modPath
 				return modPath, nil
@@ -372,6 +427,9 @@ func (r *ModuleResolver) FindModuleLocation(importPath, version string) (string,
 
 // EnsureModuleAvailable ensures a module is available, downloading if necessary
 func (r *ModuleResolver) EnsureModuleAvailable(importPath, version string) (string, error) {
+	// Create context for toolchain operations
+	ctx := context.Background()
+
 	// First try to find it locally
 	dir, err := r.FindModuleLocation(importPath, version)
 	if err == nil {
@@ -382,30 +440,60 @@ func (r *ModuleResolver) EnsureModuleAvailable(importPath, version string) (stri
 		fmt.Printf("Downloading module: %s@%s\n", importPath, version)
 	}
 
-	// Not found, try to download it
-	versionSpec := importPath
-	if version != "" {
-		versionSpec += "@" + version
+	// Not found, try to download it with retries
+	const maxRetries = 3
+	var downloadErr error
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if r.Options.Verbose && attempt > 1 {
+			fmt.Printf("Retry %d/%d downloading module: %s@%s\n", attempt, maxRetries, importPath, version)
+		}
+
+		downloadErr = r.toolchain.DownloadModule(ctx, importPath, version)
+		if downloadErr == nil {
+			break
+		}
+
+		// If this is not the last attempt, wait a bit before retrying
+		if attempt < maxRetries {
+			time.Sleep(time.Duration(attempt) * 500 * time.Millisecond)
+		}
 	}
 
-	cmd := exec.Command("go", "get", "-d", versionSpec)
-	output, err := cmd.CombinedOutput()
+	if downloadErr != nil {
+		return "", &ResolutionError{
+			ImportPath: importPath,
+			Version:    version,
+			Reason:     fmt.Sprintf("failed to download module after %d attempts", maxRetries),
+			Err:        downloadErr,
+		}
+	}
+
+	// Verify the download by checking if we can now find the module
+	dir, err = r.FindModuleLocation(importPath, version)
 	if err != nil {
 		return "", &ResolutionError{
 			ImportPath: importPath,
 			Version:    version,
-			Reason:     "failed to download module",
-			Err:        fmt.Errorf("%w: %s", err, string(output)),
+			Reason:     "module was downloaded but cannot be found in module cache",
+			Err:        err,
 		}
 	}
 
-	// Now try to find it again
-	return r.FindModuleLocation(importPath, version)
+	if r.Options.Verbose {
+		fmt.Printf("Successfully downloaded module to: %s\n", dir)
+	}
+
+	return dir, nil
 }
 
 // FindModuleVersion finds the latest version of a module
 func (r *ModuleResolver) FindModuleVersion(importPath string) (string, error) {
-	_, version, err := r.resolveModuleInfo(importPath)
+	// Create context for toolchain operations
+	ctx := context.Background()
+
+	// Use toolchain to get module info
+	_, version, err := r.toolchain.GetModuleInfo(ctx, importPath)
 	if err != nil {
 		return "", &ResolutionError{
 			ImportPath: importPath,
@@ -423,7 +511,7 @@ func (r *ModuleResolver) BuildDependencyGraph(module *typesys.Module) (map[strin
 
 	// Read the go.mod file
 	goModPath := filepath.Join(module.Dir, "go.mod")
-	content, err := os.ReadFile(goModPath)
+	content, err := r.fs.ReadFile(goModPath)
 	if err != nil {
 		return nil, &ResolutionError{
 			Module: module.Path,
@@ -469,24 +557,85 @@ func (r *ModuleResolver) BuildDependencyGraph(module *typesys.Module) (map[strin
 	return graph, nil
 }
 
+// Implement AddDependency and RemoveDependency to use the toolchain abstraction
+func (r *ModuleResolver) AddDependency(module *typesys.Module, importPath, version string) error {
+	if module == nil {
+		return &ResolutionError{
+			ImportPath: importPath,
+			Version:    version,
+			Reason:     "module cannot be nil",
+		}
+	}
+
+	// Create context for toolchain operations
+	ctx := context.Background()
+
+	// Run go get to add the dependency
+	versionSpec := importPath
+	if version != "" {
+		versionSpec += "@" + version
+	}
+
+	_, err := r.toolchain.RunCommand(ctx, "get", "-d", versionSpec)
+	if err != nil {
+		return &ResolutionError{
+			ImportPath: importPath,
+			Version:    version,
+			Module:     module.Path,
+			Reason:     "failed to add dependency",
+			Err:        err,
+		}
+	}
+
+	// Reload the module's dependencies
+	return r.ResolveDependencies(module, 0)
+}
+
+// RemoveDependency removes a dependency from a module
+func (r *ModuleResolver) RemoveDependency(module *typesys.Module, importPath string) error {
+	if module == nil {
+		return &ResolutionError{
+			ImportPath: importPath,
+			Reason:     "module cannot be nil",
+		}
+	}
+
+	// Create context for toolchain operations
+	ctx := context.Background()
+
+	// Run go get with @none flag to remove the dependency
+	_, err := r.toolchain.RunCommand(ctx, "get", importPath+"@none")
+	if err != nil {
+		return &ResolutionError{
+			ImportPath: importPath,
+			Module:     module.Path,
+			Reason:     "failed to remove dependency",
+			Err:        err,
+		}
+	}
+
+	// Reload the module's dependencies
+	return r.ResolveDependencies(module, 0)
+}
+
+// FindModuleByDir finds a module by its directory
+func (r *ModuleResolver) FindModuleByDir(dir string) (*typesys.Module, bool) {
+	// Check all resolved modules
+	for _, mod := range r.resolvedModules {
+		if mod.Dir == dir {
+			return mod, true
+		}
+	}
+	return nil, false
+}
+
 // resolveModuleInfo executes 'go list -m' to get information about a module
 func (r *ModuleResolver) resolveModuleInfo(importPath string) (string, string, error) {
-	cmd := exec.Command("go", "list", "-m", importPath)
-	output, err := cmd.Output()
-	if err != nil {
-		return "", "", fmt.Errorf("failed to get module information for %s: %w", importPath, err)
-	}
+	// Create context for toolchain operations
+	ctx := context.Background()
 
-	// Parse output (format: "path version")
-	parts := strings.Fields(string(output))
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("unexpected output format from go list -m: %s", output)
-	}
-
-	path := parts[0]
-	version := parts[1]
-
-	return path, version, nil
+	// Use toolchain to get module info
+	return r.toolchain.GetModuleInfo(ctx, importPath)
 }
 
 // isModuleLoaded checks if a module is already loaded
@@ -630,69 +779,4 @@ func handleReplace(line string, replacements map[string]string) {
 	}
 
 	replacements[original] = replacement
-}
-
-// AddDependency adds a dependency to a module and loads it
-func (r *ModuleResolver) AddDependency(module *typesys.Module, importPath, version string) error {
-	if module == nil {
-		return &ResolutionError{
-			ImportPath: importPath,
-			Version:    version,
-			Reason:     "module cannot be nil",
-		}
-	}
-
-	// Run go get to add the dependency
-	cmd := exec.Command("go", "get", importPath+"@"+version)
-	cmd.Dir = module.Dir
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return &ResolutionError{
-			ImportPath: importPath,
-			Version:    version,
-			Module:     module.Path,
-			Reason:     "failed to add dependency",
-			Err:        fmt.Errorf("%w: %s", err, string(output)),
-		}
-	}
-
-	// Reload the module's dependencies
-	return r.ResolveDependencies(module, 0)
-}
-
-// RemoveDependency removes a dependency from a module
-func (r *ModuleResolver) RemoveDependency(module *typesys.Module, importPath string) error {
-	if module == nil {
-		return &ResolutionError{
-			ImportPath: importPath,
-			Reason:     "module cannot be nil",
-		}
-	}
-
-	// Run go get with @none flag to remove the dependency
-	cmd := exec.Command("go", "get", importPath+"@none")
-	cmd.Dir = module.Dir
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return &ResolutionError{
-			ImportPath: importPath,
-			Module:     module.Path,
-			Reason:     "failed to remove dependency",
-			Err:        fmt.Errorf("%w: %s", err, string(output)),
-		}
-	}
-
-	// Reload the module's dependencies
-	return r.ResolveDependencies(module, 0)
-}
-
-// FindModuleByDir finds a module by its directory
-func (r *ModuleResolver) FindModuleByDir(dir string) (*typesys.Module, bool) {
-	// Check all resolved modules
-	for _, mod := range r.resolvedModules {
-		if mod.Dir == dir {
-			return mod, true
-		}
-	}
-	return nil, false
 }

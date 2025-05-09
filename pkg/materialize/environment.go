@@ -1,10 +1,12 @@
 package materialize
 
 import (
+	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
+
+	"bitspark.dev/go-tree/pkg/toolkit"
 )
 
 // Environment represents materialized modules and provides operations on them
@@ -20,6 +22,12 @@ type Environment struct {
 
 	// Environment variables for command execution
 	EnvVars map[string]string
+
+	// Toolchain for Go operations (may be nil if not set)
+	toolchain toolkit.GoToolchain
+
+	// Filesystem for operations (may be nil if not set)
+	fs toolkit.ModuleFS
 }
 
 // NewEnvironment creates a new environment
@@ -29,61 +37,77 @@ func NewEnvironment(rootDir string, isTemporary bool) *Environment {
 		ModulePaths: make(map[string]string),
 		IsTemporary: isTemporary,
 		EnvVars:     make(map[string]string),
+		toolchain:   toolkit.NewStandardGoToolchain(),
+		fs:          toolkit.NewStandardModuleFS(),
 	}
 }
 
+// WithToolchain sets a custom toolchain
+func (e *Environment) WithToolchain(toolchain toolkit.GoToolchain) *Environment {
+	e.toolchain = toolchain
+	return e
+}
+
+// WithFS sets a custom filesystem
+func (e *Environment) WithFS(fs toolkit.ModuleFS) *Environment {
+	e.fs = fs
+	return e
+}
+
 // Execute runs a command in the context of the specified module
-func (e *Environment) Execute(command []string, moduleDir string) (*exec.Cmd, error) {
+func (e *Environment) Execute(command []string, moduleDir string) ([]byte, error) {
 	if len(command) == 0 {
 		return nil, fmt.Errorf("no command specified")
 	}
 
-	// Create command
-	cmd := exec.Command(command[0], command[1:]...)
+	// Create context for toolchain operations
+	ctx := context.Background()
 
-	// Set working directory if specified
+	// Get working directory
+	var workDir string
 	if moduleDir != "" {
 		// Check if it's a module path
 		if dir, ok := e.ModulePaths[moduleDir]; ok {
-			cmd.Dir = dir
+			workDir = dir
 		} else {
 			// Assume it's a direct path
-			cmd.Dir = moduleDir
+			workDir = moduleDir
 		}
 	} else {
 		// Default to root directory
-		cmd.Dir = e.RootDir
+		workDir = e.RootDir
 	}
 
-	// Set environment variables
+	// Check if we have a toolchain
+	if e.toolchain == nil {
+		e.toolchain = toolkit.NewStandardGoToolchain()
+	}
+
+	// Set up the toolchain
+	customToolchain := *e.toolchain.(*toolkit.StandardGoToolchain)
+	customToolchain.WorkDir = workDir
+
+	// Add environment variables
 	if len(e.EnvVars) > 0 {
-		cmd.Env = os.Environ()
+		env := os.Environ()
 		for k, v := range e.EnvVars {
-			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+			env = append(env, fmt.Sprintf("%s=%s", k, v))
 		}
+		customToolchain.Env = env
 	}
 
-	return cmd, nil
+	// Execute the command
+	return customToolchain.RunCommand(ctx, command[0], command[1:]...)
 }
 
 // ExecuteInModule runs a command in the context of the specified module and returns its output
 func (e *Environment) ExecuteInModule(command []string, modulePath string) ([]byte, error) {
-	cmd, err := e.Execute(command, modulePath)
-	if err != nil {
-		return nil, err
-	}
-
-	return cmd.CombinedOutput()
+	return e.Execute(command, modulePath)
 }
 
 // ExecuteInRoot runs a command in the root directory
 func (e *Environment) ExecuteInRoot(command []string) ([]byte, error) {
-	cmd, err := e.Execute(command, "")
-	if err != nil {
-		return nil, err
-	}
-
-	return cmd.CombinedOutput()
+	return e.Execute(command, "")
 }
 
 // Cleanup removes the environment if it's temporary
@@ -92,7 +116,12 @@ func (e *Environment) Cleanup() error {
 		return nil
 	}
 
-	// Remove the root directory and all contents
+	// Use filesystem abstraction if available
+	if e.fs != nil {
+		return e.fs.RemoveAll(e.RootDir)
+	}
+
+	// Fallback to standard library
 	return os.RemoveAll(e.RootDir)
 }
 
@@ -141,6 +170,14 @@ func (e *Environment) FileExists(modulePath, relPath string) bool {
 	}
 
 	fullPath := filepath.Join(moduleDir, relPath)
+
+	// Use filesystem abstraction if available
+	if e.fs != nil {
+		_, err := e.fs.Stat(fullPath)
+		return err == nil
+	}
+
+	// Fallback to standard library
 	_, err := os.Stat(fullPath)
 	return err == nil
 }

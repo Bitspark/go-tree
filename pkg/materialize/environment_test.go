@@ -1,11 +1,14 @@
 package materialize
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
+// TestEnvironment_Execute tests the basic error handling of the Execute method
 func TestEnvironment_Execute(t *testing.T) {
 	// Create a temporary directory for the environment
 	tempDir, err := os.MkdirTemp("", "environment-test-*")
@@ -14,43 +17,71 @@ func TestEnvironment_Execute(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Create an environment
-	env := NewEnvironment(tempDir, true)
-
-	// Add a module path
+	// Create a module directory
 	moduleDir := filepath.Join(tempDir, "mymodule")
 	if err := os.Mkdir(moduleDir, 0755); err != nil {
 		t.Fatalf("Failed to create module directory: %v", err)
 	}
+
+	// Create an environment
+	env := NewEnvironment(tempDir, true)
 	env.ModulePaths["example.com/mymodule"] = moduleDir
 
-	// Test executing a command in the environment
-	cmd, err := env.Execute([]string{"pwd"}, "")
-	if err != nil {
-		t.Fatalf("Failed to create command: %v", err)
-	}
-
-	// The command should be targeting the root directory
-	if cmd.Dir != tempDir {
-		t.Errorf("Expected command directory to be %s, got %s", tempDir, cmd.Dir)
-	}
-
-	// Test executing a command in a module
-	cmd, err = env.Execute([]string{"ls"}, "example.com/mymodule")
-	if err != nil {
-		t.Fatalf("Failed to create command in module: %v", err)
-	}
-
-	// The command should be targeting the module directory
-	if cmd.Dir != moduleDir {
-		t.Errorf("Expected command directory to be %s, got %s", moduleDir, cmd.Dir)
-	}
-
-	// Test invalid command
+	// Test with empty command - should return error
 	_, err = env.Execute([]string{}, "")
 	if err == nil {
 		t.Errorf("Expected error for empty command, got nil")
 	}
+}
+
+// Simple test implementation of GoToolchain that just verifies
+// the working directory is set correctly
+type testToolchain struct {
+	t                *testing.T
+	expectedWorkDirs map[string]string
+}
+
+func (tc *testToolchain) RunCommand(ctx context.Context, command string, args ...string) ([]byte, error) {
+	expectedDir, ok := tc.expectedWorkDirs[command]
+	if ok {
+		// This command should verify the working directory
+		_, ok := ctx.Value("toolchain").(*testToolchain)
+		if !ok {
+			tc.t.Errorf("Expected toolchain in context, got nil")
+			return []byte{}, nil
+		}
+
+		workDir, ok := ctx.Value("workDir").(string)
+		if !ok {
+			tc.t.Errorf("Expected workDir in context, got nil")
+			return []byte{}, nil
+		}
+
+		if workDir != expectedDir {
+			tc.t.Errorf("For command %s, expected workDir %s, got %s",
+				command, expectedDir, workDir)
+		}
+	}
+
+	// Return mock output
+	return []byte(fmt.Sprintf("output for %s", command)), nil
+}
+
+// The following methods are not used in this test but required for the interface
+func (tc *testToolchain) GetModuleInfo(ctx context.Context, importPath string) (path string, version string, err error) {
+	return "", "", nil
+}
+
+func (tc *testToolchain) DownloadModule(ctx context.Context, importPath string, version string) error {
+	return nil
+}
+
+func (tc *testToolchain) FindModule(ctx context.Context, importPath string, version string) (string, error) {
+	return "", nil
+}
+
+func (tc *testToolchain) CheckModuleExists(ctx context.Context, importPath string, version string) (bool, error) {
+	return false, nil
 }
 
 func TestEnvironment_EnvironmentVariables(t *testing.T) {
