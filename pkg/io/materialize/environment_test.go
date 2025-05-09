@@ -1,17 +1,10 @@
 package materialize
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 	"testing"
 )
-
-func safeRemoveAll(path string) {
-	if err := os.RemoveAll(path); err != nil {
-		log.Fatalf("Failed to remove %s: %v", path, err)
-	}
-}
 
 // TestEnvironment_Execute tests the basic error handling of the Execute method
 func TestEnvironment_Execute(t *testing.T) {
@@ -102,7 +95,7 @@ func TestEnvironment_Cleanup(t *testing.T) {
 	if _, err := os.Stat(tempDir); !os.IsNotExist(err) {
 		t.Errorf("Temporary directory still exists after cleanup")
 		// If the test fails, cleanup manually to avoid leaving temp files
-		os.RemoveAll(tempDir)
+		_ = os.RemoveAll(tempDir)
 	}
 
 	// Create a non-temporary environment

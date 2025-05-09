@@ -144,7 +144,10 @@ func (m *ModuleMaterializer) materializeModules(modules []*typesys.Module, opts 
 		if err := m.materializeModule(module, rootDir, env, opts); err != nil {
 			// Clean up on error unless Preserve is set
 			if env.IsTemporary && !opts.Preserve {
-				env.Cleanup()
+				if cleanupErr := env.Cleanup(); cleanupErr != nil && opts.Verbose {
+					// Only log if verbose is enabled
+					fmt.Printf("Warning: failed to clean up environment: %v\n", cleanupErr)
+				}
 			}
 			return nil, err
 		}

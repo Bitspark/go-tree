@@ -7,7 +7,27 @@ import (
 	"testing"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
+	"bitspark.dev/go-tree/pkg/io/materialize"
 )
+
+func safeRemoveAll(path string) {
+	if err := os.RemoveAll(path); err != nil {
+		// Ignore errors during cleanup in tests
+		// This is especially important on Windows where files might still be locked
+		_ = err
+	}
+}
+
+// Helper for safely cleaning up environments
+func safeCleanup(env *materialize.Environment) {
+	if env != nil {
+		if err := env.Cleanup(); err != nil {
+			// Ignore errors during cleanup in tests
+			// This is especially important on Windows where files might still be locked
+			_ = err
+		}
+	}
+}
 
 func TestService_NewArchitecture(t *testing.T) {
 	// Create a temporary test module
@@ -15,7 +35,7 @@ func TestService_NewArchitecture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer safeRemoveAll(tempDir)
 
 	// Create a simple go.mod file
 	goModContent := `module example.com/testmodule
@@ -82,7 +102,7 @@ func main() {
 		t.Logf("Note: Environment creation returned error: %v", err)
 		t.Skip("Skipping environment test")
 	} else {
-		defer env.Cleanup()
+		defer safeCleanup(env)
 
 		// Verify that the environment contains our module
 		if len(env.ModulePaths) < 1 {
@@ -112,7 +132,7 @@ func TestService_DependencyResolution(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer safeRemoveAll(tempDir)
 
 	// Create a simple go.mod file with dependencies
 	goModContent := `module example.com/depsmodule
@@ -196,7 +216,7 @@ func main() {
 		if err != nil {
 			t.Logf("Environment creation returned error: %v", err)
 		} else {
-			defer env.Cleanup()
+			defer safeCleanup(env)
 			t.Logf("Successfully created environment with %d modules", len(env.ModulePaths))
 		}
 	} else {

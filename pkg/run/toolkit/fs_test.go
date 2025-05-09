@@ -207,6 +207,15 @@ func TestStandardModuleFSStat(t *testing.T) {
 	}
 }
 
+// Helper function to safely remove a directory, ignoring errors
+func safeRemoveAll(path string) {
+	if err := os.RemoveAll(path); err != nil {
+		// Ignore errors during cleanup in tests
+		// This is especially important on Windows where files might still be locked
+		_ = err
+	}
+}
+
 // TestStandardModuleFSTempDir tests the TempDir method
 func TestStandardModuleFSTempDir(t *testing.T) {
 	fs := NewStandardModuleFS()
@@ -227,7 +236,7 @@ func TestStandardModuleFSTempDir(t *testing.T) {
 	}
 
 	// Clean up
-	os.RemoveAll(tmpDir)
+	safeRemoveAll(tmpDir)
 
 	// Test with custom base directory
 	baseDir := t.TempDir()
@@ -242,5 +251,5 @@ func TestStandardModuleFSTempDir(t *testing.T) {
 	}
 
 	// Clean up
-	os.RemoveAll(tmpDir)
+	safeRemoveAll(tmpDir)
 }

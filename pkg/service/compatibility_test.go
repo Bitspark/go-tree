@@ -311,8 +311,10 @@ func TestCompareInterfaces(t *testing.T) {
 	// Create interface with one method
 	oneMethodIface := types.NewInterfaceType(
 		[]*types.Func{
-			types.NewFunc(0, pkg, "Method1", types.NewSignature(
+			types.NewFunc(0, pkg, "Method1", types.NewSignatureType(
 				nil, // receiver
+				nil, // type params
+				nil, // instance
 				types.NewTuple(types.NewVar(0, pkg, "arg", types.Typ[types.Int])), // params
 				types.NewTuple(types.NewVar(0, pkg, "", types.Typ[types.Bool])),   // results
 				false, // variadic
@@ -324,8 +326,10 @@ func TestCompareInterfaces(t *testing.T) {
 	// Create interface with different method signature
 	differentSignatureIface := types.NewInterfaceType(
 		[]*types.Func{
-			types.NewFunc(0, pkg, "Method1", types.NewSignature(
+			types.NewFunc(0, pkg, "Method1", types.NewSignatureType(
 				nil, // receiver
+				nil, // type params
+				nil, // instance
 				types.NewTuple(types.NewVar(0, pkg, "arg", types.Typ[types.String])), // params (different type)
 				types.NewTuple(types.NewVar(0, pkg, "", types.Typ[types.Bool])),      // results
 				false, // variadic
@@ -337,8 +341,10 @@ func TestCompareInterfaces(t *testing.T) {
 	// Create interface with different return type
 	differentReturnIface := types.NewInterfaceType(
 		[]*types.Func{
-			types.NewFunc(0, pkg, "Method1", types.NewSignature(
+			types.NewFunc(0, pkg, "Method1", types.NewSignatureType(
 				nil, // receiver
+				nil, // type params
+				nil, // instance
 				types.NewTuple(types.NewVar(0, pkg, "arg", types.Typ[types.Int])), // params
 				types.NewTuple(types.NewVar(0, pkg, "", types.Typ[types.String])), // results (different type)
 				false, // variadic
@@ -350,8 +356,10 @@ func TestCompareInterfaces(t *testing.T) {
 	// Create interface with variadic method
 	variadicIface := types.NewInterfaceType(
 		[]*types.Func{
-			types.NewFunc(0, pkg, "Method1", types.NewSignature(
+			types.NewFunc(0, pkg, "Method1", types.NewSignatureType(
 				nil, // receiver
+				nil, // type params
+				nil, // instance
 				types.NewTuple(types.NewVar(0, pkg, "args", types.NewSlice(types.Typ[types.Int]))), // variadic params
 				types.NewTuple(types.NewVar(0, pkg, "", types.Typ[types.Bool])),                    // results
 				true, // variadic
@@ -363,14 +371,18 @@ func TestCompareInterfaces(t *testing.T) {
 	// Create interface with multiple methods
 	multiMethodIface := types.NewInterfaceType(
 		[]*types.Func{
-			types.NewFunc(0, pkg, "Method1", types.NewSignature(
+			types.NewFunc(0, pkg, "Method1", types.NewSignatureType(
 				nil, // receiver
+				nil, // type params
+				nil, // instance
 				types.NewTuple(types.NewVar(0, pkg, "arg", types.Typ[types.Int])), // params
 				types.NewTuple(types.NewVar(0, pkg, "", types.Typ[types.Bool])),   // results
 				false, // variadic
 			)),
-			types.NewFunc(0, pkg, "Method2", types.NewSignature(
+			types.NewFunc(0, pkg, "Method2", types.NewSignatureType(
 				nil, // receiver
+				nil, // type params
+				nil, // instance
 				types.NewTuple(types.NewVar(0, pkg, "arg", types.Typ[types.String])), // params
 				types.NewTuple(types.NewVar(0, pkg, "", types.Typ[types.Int])),       // results
 				false, // variadic
@@ -382,8 +394,10 @@ func TestCompareInterfaces(t *testing.T) {
 	// Create an interface to embed
 	embeddedIface := types.NewInterfaceType(
 		[]*types.Func{
-			types.NewFunc(0, pkg, "EmbeddedMethod", types.NewSignature(
+			types.NewFunc(0, pkg, "EmbeddedMethod", types.NewSignatureType(
 				nil, // receiver
+				nil, // type params
+				nil, // instance
 				types.NewTuple(types.NewVar(0, pkg, "arg", types.Typ[types.Int])), // params
 				types.NewTuple(types.NewVar(0, pkg, "", types.Typ[types.Bool])),   // results
 				false, // variadic
@@ -402,8 +416,10 @@ func TestCompareInterfaces(t *testing.T) {
 	// Create interface that embeds another interface
 	withEmbeddedIface := types.NewInterfaceType(
 		[]*types.Func{
-			types.NewFunc(0, pkg, "Method1", types.NewSignature(
+			types.NewFunc(0, pkg, "Method1", types.NewSignatureType(
 				nil, // receiver
+				nil, // type params
+				nil, // instance
 				types.NewTuple(types.NewVar(0, pkg, "arg", types.Typ[types.Int])), // params
 				types.NewTuple(types.NewVar(0, pkg, "", types.Typ[types.Bool])),   // results
 				false, // variadic

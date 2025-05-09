@@ -3,6 +3,7 @@ package materialize
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // DependencyPolicy determines which dependencies get materialized
@@ -113,5 +114,20 @@ func (o MaterializeOptions) IsTemporary() bool {
 
 	// If TargetDir is in the system temp directory, it's probably temporary
 	tempDir := os.TempDir()
-	return filepath.HasPrefix(o.TargetDir, tempDir)
+	// Use a safer path comparison than HasPrefix
+	targetAbs, err := filepath.Abs(o.TargetDir)
+	if err != nil {
+		return false
+	}
+	tempAbs, err := filepath.Abs(tempDir)
+	if err != nil {
+		return false
+	}
+
+	targetAbs = filepath.Clean(targetAbs)
+	tempAbs = filepath.Clean(tempAbs)
+
+	// Check if targetAbs starts with tempAbs + separator
+	return targetAbs == tempAbs ||
+		strings.HasPrefix(targetAbs, tempAbs+string(filepath.Separator))
 }

@@ -14,7 +14,7 @@ func TestModuleMaterializer_Materialize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer safeRemoveAll(tempDir)
 
 	// Create a simple go.mod file
 	goModContent := `module example.com/testmodule
@@ -46,7 +46,7 @@ require (
 	if err != nil {
 		t.Fatalf("Failed to create materialization dir: %v", err)
 	}
-	defer os.RemoveAll(materializeDir)
+	defer safeRemoveAll(materializeDir)
 
 	opts := MaterializeOptions{
 		TargetDir:        materializeDir,
@@ -86,7 +86,7 @@ require (
 	}
 
 	// Basic verification that it contains the module path
-	if content == nil || len(content) == 0 {
+	if len(content) == 0 {
 		t.Errorf("go.mod is empty")
 	} else if string(content[:7]) != "module " {
 		t.Errorf("go.mod doesn't start with 'module', got: %s", string(content[:min(10, len(content))]))
@@ -105,7 +105,7 @@ func TestModuleMaterializer_MaterializeWithDependencies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer safeRemoveAll(tempDir)
 
 	// Create a simple go.mod file with dependencies
 	goModContent := `module example.com/testmodule
@@ -137,7 +137,7 @@ require (
 	if err != nil {
 		t.Fatalf("Failed to create materialization dir: %v", err)
 	}
-	defer os.RemoveAll(materializeDir)
+	defer safeRemoveAll(materializeDir)
 
 	opts := MaterializeOptions{
 		TargetDir:        materializeDir,

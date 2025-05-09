@@ -364,8 +364,10 @@ func createTestInterface(methodNames []string, numMethods int) *types.Interface 
 
 	for i := 0; i < numMethods && i < len(methodNames); i++ {
 		// Create a method signature (func(int) string)
-		sig := types.NewSignature(
+		sig := types.NewSignatureType(
 			nil, // receiver
+			nil, // type params
+			nil, // instance
 			types.NewTuple(types.NewVar(0, pkg, "arg", types.Typ[types.Int])),
 			types.NewTuple(types.NewVar(0, pkg, "", types.Typ[types.String])),
 			false, // variadic
