@@ -1,10 +1,11 @@
 package loader
 
 import (
-	"bitspark.dev/go-tree/pkg/core/typesys"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"bitspark.dev/go-tree/pkg/core/typesys"
 
 	"golang.org/x/tools/go/packages"
 )
@@ -95,7 +96,7 @@ func TestPackageLoading(t *testing.T) {
 		}
 
 		// Check a specific package we know should be there
-		pkgDir := filepath.Join(moduleDir, "pkg", "typesys")
+		pkgDir := filepath.Join(moduleDir, "pkg", "core", "typesys")
 		if _, err := os.Stat(pkgDir); os.IsNotExist(err) {
 			t.Errorf("typesys package directory not found at %s", pkgDir)
 		} else {
@@ -118,7 +119,7 @@ func TestPackageLoading(t *testing.T) {
 // TestPackagesLoadDetails tests the detailed behavior of packages loading
 func TestPackagesLoadDetails(t *testing.T) {
 	// Get the project root
-	moduleDir, err := filepath.Abs("../../../")
+	moduleDir, err := filepath.Abs("../../..")
 	if err != nil {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}
@@ -126,8 +127,8 @@ func TestPackagesLoadDetails(t *testing.T) {
 	// Test direct go/packages loading to see if that works
 	t.Log("Testing direct use of golang.org/x/tools/go/packages")
 
-	// Let's look at pkg/typesys specifically
-	pkgPath := filepath.Join(moduleDir, "pkg", "typesys")
+	// Let's look at pkg/core/typesys specifically
+	pkgPath := filepath.Join(moduleDir, "pkg", "core", "typesys")
 	basicTest(t, pkgPath)
 
 	// Let's also try the whole project with ./...
@@ -154,7 +155,7 @@ func basicTest(t *testing.T, dir string) {
 
 	// Try with different patterns
 	patterns := []string{
-		".",     // current directory only
+		"..",    // current directory only
 		"./...", // recursively
 	}
 
@@ -162,7 +163,7 @@ func basicTest(t *testing.T, dir string) {
 		t.Logf("Loading with pattern: %s", pattern)
 		pkgs, err := packages.Load(cfg, pattern)
 		if err != nil {
-			t.Errorf("Failed to load packages with pattern %s: %v", pattern, err)
+			t.Errorf("Failed to load packages with pattern %s: err: %v: stderr: %s", pattern, err, "")
 			continue
 		}
 
