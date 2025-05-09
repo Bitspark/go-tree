@@ -2,6 +2,7 @@ package service
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -144,6 +145,16 @@ func main() {
 	err = os.WriteFile(filepath.Join(tempDir, "main.go"), []byte(goFileContent), 0644)
 	if err != nil {
 		t.Fatalf("Failed to write main.go: %v", err)
+	}
+
+	// Initialize go.sum file by running go mod tidy in the temporary directory
+	cmd := exec.Command("go", "mod", "tidy")
+	cmd.Dir = tempDir
+	if tidyOutput, err := cmd.CombinedOutput(); err != nil {
+		t.Logf("Warning: Failed to run go mod tidy: %v\nOutput: %s", err, tidyOutput)
+		// Continue with the test anyway, as we want to test our handling of missing dependencies
+	} else {
+		t.Logf("Successfully initialized go.sum in test module")
 	}
 
 	// Create service configuration with dependency loading
