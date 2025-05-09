@@ -3,7 +3,6 @@ package typesys
 import (
 	"go/ast"
 	"go/token"
-	"log"
 	"path/filepath"
 )
 
@@ -95,13 +94,8 @@ func (f *File) GetPositionInfo(start, end token.Pos) *PositionInfo {
 		return nil
 	}
 
-	// If filenames differ or aren't this file, this is suspicious but try to handle it
-	expectedName := f.Path
-	if filepath.Base(startPos.Filename) != filepath.Base(expectedName) &&
-		startPos.Filename != expectedName &&
-		filepath.Clean(startPos.Filename) != filepath.Clean(expectedName) {
-		log.Printf("Warning: Position filename %s doesn't match file %s", startPos.Filename, expectedName)
-	}
+	// We no longer need to log warnings here since we fix the mismatches in createSymbol function
+	// Setting the correct file there is better than just warning here
 
 	// Calculate length safely
 	length := 0

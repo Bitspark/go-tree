@@ -130,14 +130,16 @@ func TestMiddlewareChain(t *testing.T) {
 	// Create some test middleware
 	callOrder := []string{}
 
-	middleware1 := func(ctx context.Context, importPath, version string, next ResolutionFunc) (*typesys.Module, error) {
+	middleware1 := func(ctx context.Context, importPath, version string, next ResolutionFunc) (context.Context, *typesys.Module, error) {
 		callOrder = append(callOrder, "middleware1")
-		return next()
+		module, err := next()
+		return ctx, module, err
 	}
 
-	middleware2 := func(ctx context.Context, importPath, version string, next ResolutionFunc) (*typesys.Module, error) {
+	middleware2 := func(ctx context.Context, importPath, version string, next ResolutionFunc) (context.Context, *typesys.Module, error) {
 		callOrder = append(callOrder, "middleware2")
-		return next()
+		module, err := next()
+		return ctx, module, err
 	}
 
 	// Add middleware to the chain

@@ -15,6 +15,29 @@ func createSymbol(pkg *typesys.Package, file *typesys.File, name string, kind ty
 	sym := typesys.NewSymbol(name, kind)
 	sym.Pos = pos
 	sym.End = end
+
+	// Verify we're using the correct file for this symbol based on its position
+	if pkg != nil && pkg.Module != nil && pkg.Module.FileSet != nil && pos.IsValid() {
+		posInfo := pkg.Module.FileSet.Position(pos)
+		if posInfo.IsValid() && posInfo.Filename != "" {
+			posFilename := filepath.Clean(posInfo.Filename)
+			fileFilename := filepath.Clean(file.Path)
+
+			// If position's filename differs from provided file, try to find correct file
+			if posFilename != fileFilename {
+				// Check if it's a test file that was mistakenly added to a non-test file
+				for _, pkgFile := range pkg.Files {
+					cleanPath := filepath.Clean(pkgFile.Path)
+					if cleanPath == posFilename {
+						// Found the correct file based on position - use it instead
+						file = pkgFile
+						break
+					}
+				}
+			}
+		}
+	}
+
 	sym.File = file
 	sym.Package = pkg
 	sym.Parent = parent

@@ -25,6 +25,10 @@ type HTMLVisitor struct {
 
 	// Contains all symbols we've already visited to avoid duplicates
 	visitedSymbols map[string]bool
+
+	// Staging for different symbol categories
+	pendingFunctions  []*typesys.Symbol
+	pendingVarsConsts []*typesys.Symbol
 }
 
 // NewHTMLVisitor creates a new HTML visitor with the given options
@@ -36,10 +40,12 @@ func NewHTMLVisitor(options *formatter.FormatOptions) *HTMLVisitor {
 	}
 
 	return &HTMLVisitor{
-		buffer:         bytes.NewBuffer(nil),
-		options:        options,
-		indentLevel:    0,
-		visitedSymbols: make(map[string]bool),
+		buffer:            bytes.NewBuffer(nil),
+		options:           options,
+		indentLevel:       0,
+		visitedSymbols:    make(map[string]bool),
+		pendingFunctions:  make([]*typesys.Symbol, 0),
+		pendingVarsConsts: make([]*typesys.Symbol, 0),
 	}
 }
 
@@ -61,6 +67,7 @@ func (v *HTMLVisitor) Indent() string {
 // VisitModule processes a module
 func (v *HTMLVisitor) VisitModule(mod *typesys.Module) error {
 	v.Write("<div class=\"packages\">\n")
+	v.indentLevel++ // Increase indent level for packages content
 
 	// Modules don't need special processing - we'll handle packages individually
 	return nil
@@ -69,6 +76,10 @@ func (v *HTMLVisitor) VisitModule(mod *typesys.Module) error {
 // VisitPackage processes a package
 func (v *HTMLVisitor) VisitPackage(pkg *typesys.Package) error {
 	v.currentPackage = pkg
+
+	// Reset pending lists for this package
+	v.pendingFunctions = make([]*typesys.Symbol, 0)
+	v.pendingVarsConsts = make([]*typesys.Symbol, 0)
 
 	v.Write("%s<div class=\"package\" id=\"pkg-%s\">\n", v.Indent(), template.HTMLEscapeString(pkg.Name))
 	v.indentLevel++
@@ -82,10 +93,12 @@ func (v *HTMLVisitor) VisitPackage(pkg *typesys.Package) error {
 
 	// Add symbols section
 	v.Write("%s<div class=\"symbols\">\n", v.Indent())
+	v.indentLevel++ // Increase indent level for symbols content
 
 	// First process types
-	v.Write("%s    <h3>Types</h3>\n", v.Indent())
-	v.Write("%s    <div class=\"type-list\">\n", v.Indent())
+	v.Write("%s<h3>Types</h3>\n", v.Indent())
+	v.Write("%s<div class=\"type-list\">\n", v.Indent())
+	v.indentLevel++ // Increase indent level for type-list content
 
 	// Types will be processed by the type visitor methods
 
@@ -94,29 +107,46 @@ func (v *HTMLVisitor) VisitPackage(pkg *typesys.Package) error {
 
 // AfterVisitPackage is called after all symbols in a package have been processed
 func (v *HTMLVisitor) AfterVisitPackage(pkg *typesys.Package) error {
-	v.Write("%s    </div>\n", v.Indent()) // Close type-list
+	v.indentLevel--                   // Decrease indent level after type-list content
+	v.Write("%s</div>\n", v.Indent()) // Close type-list
 
 	// Process functions
-	v.Write("%s    <h3>Functions</h3>\n", v.Indent())
-	v.Write("%s    <div class=\"function-list\">\n", v.Indent())
+	v.Write("%s<h3>Functions</h3>\n", v.Indent())
+	v.Write("%s<div class=\"function-list\">\n", v.Indent())
+	v.indentLevel++ // Increase indent level for function-list content
 
-	// Functions will be processed by the function visitor method
+	// Process all pending functions
+	for _, sym := range v.pendingFunctions {
+		v.currentSymbol = sym
+		v.renderSymbolHeader(sym)
+		v.renderSymbolFooter()
+	}
 
-	v.Write("%s    </div>\n", v.Indent()) // Close function-list
+	v.indentLevel--                   // Decrease indent level after function-list content
+	v.Write("%s</div>\n", v.Indent()) // Close function-list
 
 	// Process variables and constants
-	v.Write("%s    <h3>Variables and Constants</h3>\n", v.Indent())
-	v.Write("%s    <div class=\"var-const-list\">\n", v.Indent())
+	v.Write("%s<h3>Variables and Constants</h3>\n", v.Indent())
+	v.Write("%s<div class=\"var-const-list\">\n", v.Indent())
+	v.indentLevel++ // Increase indent level for var-const-list content
 
-	// Variables and constants will be processed by their visitor methods
+	// Process all pending variables and constants
+	for _, sym := range v.pendingVarsConsts {
+		v.currentSymbol = sym
+		v.renderSymbolHeader(sym)
+		v.renderSymbolFooter()
+	}
 
-	v.Write("%s    </div>\n", v.Indent()) // Close var-const-list
+	v.indentLevel--                   // Decrease indent level after var-const-list content
+	v.Write("%s</div>\n", v.Indent()) // Close var-const-list
 
+	v.indentLevel--                   // Decrease indent level after symbols content
 	v.Write("%s</div>\n", v.Indent()) // Close symbols
 
-	v.indentLevel--
+	v.indentLevel--                   // Decrease indent level after package content
 	v.Write("%s</div>\n", v.Indent()) // Close package
 
+	v.currentSymbol = nil
 	v.currentPackage = nil
 
 	return nil
@@ -168,7 +198,8 @@ func (v *HTMLVisitor) renderSymbolHeader(sym *typesys.Symbol) {
 		highlightClass = "highlight"
 	}
 
-	v.Write("%s<div class=\"%s %s\" id=\"sym-%s\">\n", v.Indent(), symClass, highlightClass, template.HTMLEscapeString(sym.ID))
+	v.Write("%s<div class=\"%s %s\" id=\"sym-%s:%d\">\n", v.Indent(), symClass, highlightClass,
+		template.HTMLEscapeString(sym.Name), sym.Kind)
 	v.indentLevel++
 
 	// Symbol name and tags
@@ -281,15 +312,8 @@ func (v *HTMLVisitor) VisitFunction(sym *typesys.Symbol) error {
 	}
 	v.visitedSymbols[sym.ID] = true
 
-	v.currentSymbol = sym
-	v.renderSymbolHeader(sym)
-
-	// Function-specific content would go here
-	// For example, showing parameter and return types
-
-	v.renderSymbolFooter()
-	v.currentSymbol = nil
-
+	// Add to pending functions instead of rendering immediately
+	v.pendingFunctions = append(v.pendingFunctions, sym)
 	return nil
 }
 
@@ -304,14 +328,8 @@ func (v *HTMLVisitor) VisitVariable(sym *typesys.Symbol) error {
 	}
 	v.visitedSymbols[sym.ID] = true
 
-	v.currentSymbol = sym
-	v.renderSymbolHeader(sym)
-
-	// Variable-specific content would go here
-
-	v.renderSymbolFooter()
-	v.currentSymbol = nil
-
+	// Add to pending vars instead of rendering immediately
+	v.pendingVarsConsts = append(v.pendingVarsConsts, sym)
 	return nil
 }
 
@@ -326,14 +344,8 @@ func (v *HTMLVisitor) VisitConstant(sym *typesys.Symbol) error {
 	}
 	v.visitedSymbols[sym.ID] = true
 
-	v.currentSymbol = sym
-	v.renderSymbolHeader(sym)
-
-	// Constant-specific content would go here
-
-	v.renderSymbolFooter()
-	v.currentSymbol = nil
-
+	// Add to pending constants instead of rendering immediately
+	v.pendingVarsConsts = append(v.pendingVarsConsts, sym)
 	return nil
 }
 
@@ -360,14 +372,43 @@ func (v *HTMLVisitor) VisitStruct(sym *typesys.Symbol) error {
 // VisitMethod processes a method
 func (v *HTMLVisitor) VisitMethod(sym *typesys.Symbol) error {
 	// Similar to VisitFunction, but for methods
-	// VisitMethod is called for methods on types
-	return v.VisitFunction(sym)
+	// Methods should be displayed under their parent type, not in the functions section
+	if !formatter.ShouldIncludeSymbol(sym, v.options) {
+		return nil
+	}
+
+	if v.visitedSymbols[sym.ID] {
+		return nil // Already processed this symbol
+	}
+	v.visitedSymbols[sym.ID] = true
+
+	v.currentSymbol = sym
+	v.renderSymbolHeader(sym)
+	v.renderSymbolFooter()
+	v.currentSymbol = nil
+
+	return nil
 }
 
 // VisitField processes a field symbol
 func (v *HTMLVisitor) VisitField(sym *typesys.Symbol) error {
 	// Similar to VisitVariable, but for struct fields
-	return v.VisitVariable(sym)
+	// We want to display fields immediately under their parent structs
+	if !formatter.ShouldIncludeSymbol(sym, v.options) {
+		return nil
+	}
+
+	if v.visitedSymbols[sym.ID] {
+		return nil // Already processed this symbol
+	}
+	v.visitedSymbols[sym.ID] = true
+
+	v.currentSymbol = sym
+	v.renderSymbolHeader(sym)
+	v.renderSymbolFooter()
+	v.currentSymbol = nil
+
+	return nil
 }
 
 // VisitGenericType processes a generic type
@@ -399,5 +440,13 @@ func (v *HTMLVisitor) VisitSymbol(sym *typesys.Symbol) error {
 // VisitParameter processes a parameter symbol
 func (v *HTMLVisitor) VisitParameter(sym *typesys.Symbol) error {
 	// Parameters are typically shown as part of their function, not individually
+	return nil
+}
+
+// AfterVisitModule is called after all packages in a module have been processed
+func (v *HTMLVisitor) AfterVisitModule(mod *typesys.Module) error {
+	v.indentLevel--     // Decrease indent level after packages content
+	v.Write("</div>\n") // Close packages
+
 	return nil
 }

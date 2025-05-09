@@ -97,6 +97,16 @@ func (v *MockVisitor) VisitTypeParameter(p *Symbol) error {
 	return nil
 }
 
+func (v *MockVisitor) AfterVisitModule(mod *Module) error {
+	v.Called["AfterVisitModule"]++
+	return nil
+}
+
+func (v *MockVisitor) AfterVisitPackage(pkg *Package) error {
+	v.Called["AfterVisitPackage"]++
+	return nil
+}
+
 func TestBaseVisitor(t *testing.T) {
 	visitor := &BaseVisitor{}
 

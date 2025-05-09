@@ -51,16 +51,34 @@ type MockModuleFS struct {
 
 // NewMockModuleFS creates a new mock filesystem
 func NewMockModuleFS() *MockModuleFS {
-	return &MockModuleFS{
+	fs := &MockModuleFS{
 		Files:       make(map[string][]byte),
 		Directories: make(map[string]bool),
 		Operations:  make([]string, 0),
 		Errors:      make(map[string]error),
 	}
+
+	// Add root directory by default
+	fs.Directories["/"] = true
+	return fs
+}
+
+// normalizePath ensures consistent path format for mock filesystem
+func (fs *MockModuleFS) normalizePath(path string) string {
+	// Ensure path uses forward slashes for consistency across platforms
+	path = filepath.ToSlash(filepath.Clean(path))
+
+	// Ensure path starts with a slash
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+
+	return path
 }
 
 // ReadFile reads a file from the filesystem
 func (fs *MockModuleFS) ReadFile(path string) ([]byte, error) {
+	path = fs.normalizePath(path)
 	fs.Operations = append(fs.Operations, "ReadFile:"+path)
 
 	if err, ok := fs.Errors["ReadFile:"+path]; ok {
@@ -77,6 +95,7 @@ func (fs *MockModuleFS) ReadFile(path string) ([]byte, error) {
 
 // WriteFile writes data to a file
 func (fs *MockModuleFS) WriteFile(path string, data []byte, perm os.FileMode) error {
+	path = fs.normalizePath(path)
 	fs.Operations = append(fs.Operations, "WriteFile:"+path)
 
 	if err, ok := fs.Errors["WriteFile:"+path]; ok {
@@ -85,9 +104,11 @@ func (fs *MockModuleFS) WriteFile(path string, data []byte, perm os.FileMode) er
 
 	// Ensure parent directory exists
 	dir := filepath.Dir(path)
-	if dir != "." && dir != "/" {
-		if !fs.directoryExists(dir) {
-			return os.ErrNotExist
+	if !fs.directoryExists(dir) {
+		return &os.PathError{
+			Op:   "open",
+			Path: path,
+			Err:  os.ErrNotExist,
 		}
 	}
 
@@ -97,30 +118,39 @@ func (fs *MockModuleFS) WriteFile(path string, data []byte, perm os.FileMode) er
 
 // MkdirAll creates a directory with all necessary parents
 func (fs *MockModuleFS) MkdirAll(path string, perm os.FileMode) error {
+	path = fs.normalizePath(path)
 	fs.Operations = append(fs.Operations, "MkdirAll:"+path)
 
 	if err, ok := fs.Errors["MkdirAll:"+path]; ok {
 		return err
 	}
 
+	// Create the target directory
 	fs.Directories[path] = true
 
-	// Also create parent directories
-	parts := strings.Split(path, string(filepath.Separator))
-	current := ""
+	// Split the path into components and create each parent directory
+	components := strings.Split(path, "/")
+	if len(components) == 0 {
+		return nil
+	}
 
-	for _, part := range parts {
-		if part == "" {
+	// Start with root directory
+	currentPath := "/"
+	fs.Directories[currentPath] = true
+
+	// Create each parent directory
+	for i := 1; i < len(components); i++ {
+		if components[i] == "" {
 			continue
 		}
 
-		if current == "" {
-			current = part
-		} else {
-			current = filepath.Join(current, part)
-		}
+		currentPath = currentPath + components[i]
+		fs.Directories[currentPath] = true
 
-		fs.Directories[current] = true
+		// Add trailing slash for next component
+		if i < len(components)-1 {
+			currentPath = currentPath + "/"
+		}
 	}
 
 	return nil
@@ -128,6 +158,7 @@ func (fs *MockModuleFS) MkdirAll(path string, perm os.FileMode) error {
 
 // RemoveAll removes a path and any children
 func (fs *MockModuleFS) RemoveAll(path string) error {
+	path = fs.normalizePath(path)
 	fs.Operations = append(fs.Operations, "RemoveAll:"+path)
 
 	if err, ok := fs.Errors["RemoveAll:"+path]; ok {
@@ -139,13 +170,13 @@ func (fs *MockModuleFS) RemoveAll(path string) error {
 
 	// Remove all files and subdirectories
 	for filePath := range fs.Files {
-		if strings.HasPrefix(filePath, path+string(filepath.Separator)) {
+		if filePath == path || strings.HasPrefix(filePath, path+"/") {
 			delete(fs.Files, filePath)
 		}
 	}
 
 	for dirPath := range fs.Directories {
-		if strings.HasPrefix(dirPath, path+string(filepath.Separator)) {
+		if dirPath == path || strings.HasPrefix(dirPath, path+"/") {
 			delete(fs.Directories, dirPath)
 		}
 	}
@@ -155,6 +186,7 @@ func (fs *MockModuleFS) RemoveAll(path string) error {
 
 // Stat returns file info
 func (fs *MockModuleFS) Stat(path string) (os.FileInfo, error) {
+	path = fs.normalizePath(path)
 	fs.Operations = append(fs.Operations, "Stat:"+path)
 
 	if err, ok := fs.Errors["Stat:"+path]; ok {
@@ -162,7 +194,7 @@ func (fs *MockModuleFS) Stat(path string) (os.FileInfo, error) {
 	}
 
 	// Check if it's a directory
-	if isDir := fs.Directories[path]; isDir {
+	if isDir, ok := fs.Directories[path]; ok && isDir {
 		return &MockFileInfo{
 			name:    filepath.Base(path),
 			size:    0,
@@ -189,14 +221,23 @@ func (fs *MockModuleFS) Stat(path string) (os.FileInfo, error) {
 
 // TempDir creates a temporary directory
 func (fs *MockModuleFS) TempDir(dir, pattern string) (string, error) {
+	dir = fs.normalizePath(dir)
 	fs.Operations = append(fs.Operations, "TempDir:"+dir+"/"+pattern)
 
 	if err, ok := fs.Errors["TempDir"]; ok {
 		return "", err
 	}
 
+	// Create parent directory if it doesn't exist
+	if !fs.directoryExists(dir) {
+		if err := fs.MkdirAll(dir, 0755); err != nil {
+			return "", err
+		}
+	}
+
 	// Create a fake temporary path
 	tempPath := filepath.Join(dir, pattern+"-mock-12345")
+	tempPath = fs.normalizePath(tempPath)
 	fs.Directories[tempPath] = true
 
 	return tempPath, nil
@@ -204,5 +245,6 @@ func (fs *MockModuleFS) TempDir(dir, pattern string) (string, error) {
 
 // directoryExists checks if a directory exists in the mock filesystem
 func (fs *MockModuleFS) directoryExists(path string) bool {
+	path = fs.normalizePath(path)
 	return fs.Directories[path]
 }

@@ -345,3 +345,8 @@ func (v *MarkdownVisitor) VisitTypeParameter(sym *typesys.Symbol) error {
 	// This is called for type parameters in generic types
 	return nil
 }
+
+// AfterVisitModule is called after all packages in a module have been processed
+func (v *MarkdownVisitor) AfterVisitModule(mod *typesys.Module) error {
+	return nil
+}

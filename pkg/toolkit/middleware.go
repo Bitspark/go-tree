@@ -16,13 +16,16 @@ const (
 	contextKeyResolutionPath contextKey = "resolutionPath"
 	// For tracking resolution depth
 	contextKeyResolutionDepth contextKey = "resolutionDepth"
+	// For tracking call chains in middleware
+	contextKeyChainID contextKey = "chainID"
 )
 
 // ResolutionFunc represents the next resolver in the chain
 type ResolutionFunc func() (*typesys.Module, error)
 
 // ResolutionMiddleware intercepts module resolution requests
-type ResolutionMiddleware func(ctx context.Context, importPath, version string, next ResolutionFunc) (*typesys.Module, error)
+// The returned context should be used for subsequent calls to maintain state
+type ResolutionMiddleware func(ctx context.Context, importPath, version string, next ResolutionFunc) (context.Context, *typesys.Module, error)
 
 // DepthLimitError represents an error when max depth is reached
 type DepthLimitError struct {
@@ -68,11 +71,16 @@ func (c *MiddlewareChain) Execute(ctx context.Context, importPath, version strin
 
 	// Create the middleware chain
 	chain := final
+	currentCtx := ctx
+
 	for i := len(c.middlewares) - 1; i >= 0; i-- {
 		mw := c.middlewares[i]
 		nextChain := chain
 		chain = func() (*typesys.Module, error) {
-			return mw(ctx, importPath, version, nextChain)
+			var module *typesys.Module
+			var err error
+			currentCtx, module, err = mw(currentCtx, importPath, version, nextChain)
+			return module, err
 		}
 	}
 
@@ -80,27 +88,44 @@ func (c *MiddlewareChain) Execute(ctx context.Context, importPath, version strin
 	return chain()
 }
 
+// WithChainID adds a chain ID to context for middleware tracking
+func WithChainID(ctx context.Context, chainID uint64) context.Context {
+	return context.WithValue(ctx, contextKeyChainID, chainID)
+}
+
+// GetChainID retrieves a chain ID from context
+func GetChainID(ctx context.Context) (uint64, bool) {
+	val := ctx.Value(contextKeyChainID)
+	if val == nil {
+		return 0, false
+	}
+	id, ok := val.(uint64)
+	return id, ok
+}
+
 // NewDepthLimitingMiddleware creates a middleware that limits resolution depth
 func NewDepthLimitingMiddleware(maxDepth int) ResolutionMiddleware {
-	depthMap := make(map[string]int) // Keep track of depth per import path
-	mu := &sync.RWMutex{}
-
-	return func(ctx context.Context, importPath, version string, next ResolutionFunc) (*typesys.Module, error) {
-		// Extract current path from context or create new path
-		var resolutionPath []string
-		if path, ok := ctx.Value(contextKeyResolutionPath).([]string); ok {
-			resolutionPath = path
-		} else {
-			resolutionPath = []string{}
+	return func(ctx context.Context, importPath, version string, next ResolutionFunc) (context.Context, *typesys.Module, error) {
+		// Get current depth from context, defaults to 0
+		var currentDepth int
+		if depthVal := ctx.Value(contextKeyResolutionDepth); depthVal != nil {
+			if depth, ok := depthVal.(int); ok {
+				currentDepth = depth
+			}
 		}
 
-		// Check current depth for this import path
-		mu.RLock()
-		currentDepth := depthMap[importPath]
-		mu.RUnlock()
-
+		// Check if we've reached the maximum depth
 		if currentDepth >= maxDepth {
-			return nil, &DepthLimitError{
+			// Extract current path from context
+			var resolutionPath []string
+			if pathVal := ctx.Value(contextKeyResolutionPath); pathVal != nil {
+				if path, ok := pathVal.([]string); ok {
+					resolutionPath = path
+				}
+			}
+
+			// Construct and return a depth limit error
+			return ctx, nil, &DepthLimitError{
 				ImportPath: importPath,
 				Version:    version,
 				MaxDepth:   maxDepth,
@@ -108,24 +133,25 @@ func NewDepthLimitingMiddleware(maxDepth int) ResolutionMiddleware {
 			}
 		}
 
-		// Update depth and path for next calls
-		mu.Lock()
-		depthMap[importPath] = currentDepth + 1
-		mu.Unlock()
+		// Create a new context with incremented depth
+		newCtx := context.WithValue(ctx, contextKeyResolutionDepth, currentDepth+1)
 
-		// The context will be passed implicitly to the next middlewares
-		// but we can't directly change the context for the current function.
-		// This is a limitation of the middleware design - we accept it for simplicity
+		// Also add this import path to the resolution path if not already there
+		var resolutionPath []string
+		if pathVal := ctx.Value(contextKeyResolutionPath); pathVal != nil {
+			if path, ok := pathVal.([]string); ok {
+				resolutionPath = append([]string{}, path...) // Make a copy
+			}
+		}
+		// Add current import path to resolution path
+		resolutionPath = append(resolutionPath, importPath)
+		newCtx = context.WithValue(newCtx, contextKeyResolutionPath, resolutionPath)
 
-		// Call next middleware/resolver
+		// Call the next function with the new context
 		module, err := next()
 
-		// Reset depth after completion
-		mu.Lock()
-		depthMap[importPath] = currentDepth
-		mu.Unlock()
-
-		return module, err
+		// Return the new context along with the result
+		return newCtx, module, err
 	}
 }
 
@@ -134,7 +160,7 @@ func NewCachingMiddleware() ResolutionMiddleware {
 	cache := make(map[string]*typesys.Module)
 	mu := &sync.RWMutex{}
 
-	return func(ctx context.Context, importPath, version string, next ResolutionFunc) (*typesys.Module, error) {
+	return func(ctx context.Context, importPath, version string, next ResolutionFunc) (context.Context, *typesys.Module, error) {
 		cacheKey := importPath
 		if version != "" {
 			cacheKey += "@" + version
@@ -142,32 +168,40 @@ func NewCachingMiddleware() ResolutionMiddleware {
 
 		// Check cache first with read lock
 		mu.RLock()
-		if cachedModule, ok := cache[cacheKey]; ok {
-			mu.RUnlock()
-			return cachedModule, nil
-		}
+		cachedModule, found := cache[cacheKey]
 		mu.RUnlock()
 
-		// Not in cache, proceed with resolution
-		module, err := next()
-		if err != nil {
-			return nil, err
+		if found {
+			return ctx, cachedModule, nil
 		}
 
-		// Cache the result with write lock
-		if module != nil {
-			mu.Lock()
-			cache[cacheKey] = module
+		// Not in cache, need to acquire write lock before calling next
+		// This prevents multiple goroutines from resolving the same module
+		mu.Lock()
+
+		// Check again after acquiring the write lock
+		// Another goroutine might have populated the cache already
+		if cachedModule, found := cache[cacheKey]; found {
 			mu.Unlock()
+			return ctx, cachedModule, nil
 		}
 
-		return module, nil
+		// Call next while holding the lock to prevent duplicate resolution
+		module, err := next()
+
+		// Only cache successful results
+		if err == nil && module != nil {
+			cache[cacheKey] = module
+		}
+
+		mu.Unlock()
+		return ctx, module, err
 	}
 }
 
 // NewErrorEnhancerMiddleware creates a middleware that enhances errors with context
 func NewErrorEnhancerMiddleware() ResolutionMiddleware {
-	return func(ctx context.Context, importPath, version string, next ResolutionFunc) (*typesys.Module, error) {
+	return func(ctx context.Context, importPath, version string, next ResolutionFunc) (context.Context, *typesys.Module, error) {
 		// Get resolution path from context if available
 		var resolutionPath []string
 		if path, ok := ctx.Value(contextKeyResolutionPath).([]string); ok {
@@ -182,14 +216,14 @@ func NewErrorEnhancerMiddleware() ResolutionMiddleware {
 			// Check if it's already a typed error we don't want to wrap
 			switch err.(type) {
 			case *DepthLimitError:
-				return nil, err
+				return ctx, nil, err
 			}
 
 			// Create enhanced error with context
-			return nil, fmt.Errorf("module resolution failed for %s@%s in path %v: %w",
+			return ctx, nil, fmt.Errorf("module resolution failed for %s@%s in path %v: %w",
 				importPath, version, resolutionPath, err)
 		}
 
-		return module, nil
+		return ctx, module, nil
 	}
 }

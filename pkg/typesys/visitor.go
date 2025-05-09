@@ -24,6 +24,10 @@ type TypeSystemVisitor interface {
 	// Generic type support
 	VisitGenericType(g *Symbol) error
 	VisitTypeParameter(p *Symbol) error
+
+	// After visitor methods - called after all children have been visited
+	AfterVisitModule(mod *Module) error
+	AfterVisitPackage(pkg *Package) error
 }
 
 // BaseVisitor provides a default implementation of TypeSystemVisitor.
@@ -111,6 +115,16 @@ func (v *BaseVisitor) VisitTypeParameter(p *Symbol) error {
 	return nil
 }
 
+// AfterVisitModule is called after visiting a module and all its packages.
+func (v *BaseVisitor) AfterVisitModule(mod *Module) error {
+	return nil
+}
+
+// AfterVisitPackage is called after visiting a package and all its symbols.
+func (v *BaseVisitor) AfterVisitPackage(pkg *Package) error {
+	return nil
+}
+
 // Walk traverses a module with the visitor.
 func Walk(v TypeSystemVisitor, mod *Module) error {
 	// Visit the module
@@ -123,6 +137,11 @@ func Walk(v TypeSystemVisitor, mod *Module) error {
 		if err := walkPackage(v, pkg); err != nil {
 			return err
 		}
+	}
+
+	// Call AfterVisitModule after all packages have been visited
+	if err := v.AfterVisitModule(mod); err != nil {
+		return err
 	}
 
 	return nil
@@ -140,6 +159,11 @@ func walkPackage(v TypeSystemVisitor, pkg *Package) error {
 		if err := walkFile(v, file); err != nil {
 			return err
 		}
+	}
+
+	// Call AfterVisitPackage after all files have been visited
+	if err := v.AfterVisitPackage(pkg); err != nil {
+		return err
 	}
 
 	return nil
@@ -342,6 +366,16 @@ func (v *FilteredVisitor) VisitTypeParameter(p *Symbol) error {
 		return v.Visitor.VisitTypeParameter(p)
 	}
 	return nil
+}
+
+// AfterVisitModule visits a module after all its packages.
+func (v *FilteredVisitor) AfterVisitModule(mod *Module) error {
+	return v.Visitor.AfterVisitModule(mod)
+}
+
+// AfterVisitPackage visits a package after all its symbols.
+func (v *FilteredVisitor) AfterVisitPackage(pkg *Package) error {
+	return v.Visitor.AfterVisitPackage(pkg)
 }
 
 // ExportedFilter returns a filter that only visits exported symbols.
