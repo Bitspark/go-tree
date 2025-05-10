@@ -76,19 +76,35 @@ type MaterializeOptions struct {
 
 	// Whether to preserve the environment after cleanup
 	Preserve bool
+
+	// Registry to use for module resolution
+	Registry interface{}
+
+	// Map of explicit replacements to add to go.mod
+	// Keys are import paths, values are replacement paths
+	ExplicitReplacements map[string]string
+
+	// Whether to use the registry for generating replacement directives
+	UseRegistryForReplacements bool
+
+	// Whether to download missing dependencies automatically
+	DownloadMissing bool
 }
 
 // DefaultMaterializeOptions returns a MaterializeOptions with default values
 func DefaultMaterializeOptions() MaterializeOptions {
 	return MaterializeOptions{
-		DependencyPolicy: DirectDependenciesOnly,
-		ReplaceStrategy:  RelativeReplace,
-		LayoutStrategy:   FlatLayout,
-		RunGoModTidy:     true,
-		IncludeTests:     false,
-		EnvironmentVars:  make(map[string]string),
-		Verbose:          false,
-		Preserve:         false,
+		DependencyPolicy:           DirectDependenciesOnly,
+		ReplaceStrategy:            RelativeReplace,
+		LayoutStrategy:             FlatLayout,
+		RunGoModTidy:               true,
+		IncludeTests:               false,
+		EnvironmentVars:            make(map[string]string),
+		Verbose:                    false,
+		Preserve:                   false,
+		ExplicitReplacements:       make(map[string]string),
+		UseRegistryForReplacements: true,
+		DownloadMissing:            true,
 	}
 }
 

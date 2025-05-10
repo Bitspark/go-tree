@@ -18,14 +18,18 @@ type TestModuleResolver struct {
 	baseResolver *resolve.ModuleResolver
 	moduleCache  map[string]*typesys.Module
 	pathMappings map[string]string // Maps import path to filesystem path
+	registry     *resolve.StandardModuleRegistry
 }
 
 // NewTestModuleResolver creates a new resolver for tests
 func NewTestModuleResolver() *TestModuleResolver {
+	registry := resolve.NewStandardModuleRegistry()
+
 	r := &TestModuleResolver{
-		baseResolver: resolve.NewModuleResolver(),
+		baseResolver: resolve.NewModuleResolver().WithRegistry(registry),
 		moduleCache:  make(map[string]*typesys.Module),
 		pathMappings: make(map[string]string),
+		registry:     registry,
 	}
 
 	// Pre-register the standard test modules
@@ -37,6 +41,9 @@ func NewTestModuleResolver() *TestModuleResolver {
 // MapModule registers a filesystem path to be used for a specific import path
 func (r *TestModuleResolver) MapModule(importPath, fsPath string) {
 	r.pathMappings[importPath] = fsPath
+
+	// Also register with the registry
+	r.registry.RegisterModule(importPath, fsPath, true)
 }
 
 // ResolveModule implements the execute.ModuleResolver interface
@@ -55,6 +62,9 @@ func (r *TestModuleResolver) ResolveModule(path, version string, opts interface{
 		if module.Path != "" {
 			r.moduleCache[module.Path] = module
 			r.pathMappings[module.Path] = path
+
+			// Register with the registry
+			r.registry.RegisterModule(module.Path, path, true)
 		}
 
 		return module, nil
@@ -85,6 +95,11 @@ func (r *TestModuleResolver) ResolveModule(path, version string, opts interface{
 	return r.baseResolver.ResolveModule(path, version, toResolveOptions(opts))
 }
 
+// GetRegistry returns the module registry
+func (r *TestModuleResolver) GetRegistry() interface{} {
+	return r.registry
+}
+
 // ResolveDependencies implements the execute.ModuleResolver interface
 func (r *TestModuleResolver) ResolveDependencies(module *typesys.Module, depth int) error {
 	// For test modules, we don't need to resolve dependencies
@@ -94,14 +109,20 @@ func (r *TestModuleResolver) ResolveDependencies(module *typesys.Module, depth i
 // Helper to convert interface{} to resolve.ResolveOptions
 func toResolveOptions(opts interface{}) resolve.ResolveOptions {
 	if opts == nil {
-		return resolve.DefaultResolveOptions()
+		return resolve.ResolveOptions{
+			DownloadMissing: false, // Disable auto-download for tests
+		}
 	}
 
 	if resolveOpts, ok := opts.(resolve.ResolveOptions); ok {
+		// Make sure auto-download is disabled for tests
+		resolveOpts.DownloadMissing = false
 		return resolveOpts
 	}
 
-	return resolve.DefaultResolveOptions()
+	return resolve.ResolveOptions{
+		DownloadMissing: false, // Disable auto-download for tests
+	}
 }
 
 // GetTestModulePath returns the absolute path to a test module
@@ -134,6 +155,13 @@ func CreateRunner() *execute.FunctionRunner {
 	registerTestModules(resolver)
 
 	materializer := materialize.NewModuleMaterializer()
+
+	// Set up materialization options to use the registry
+	options := materialize.DefaultMaterializeOptions()
+	options.UseRegistryForReplacements = true
+	options.Registry = resolver.registry
+	options.DownloadMissing = false
+
 	return execute.NewFunctionRunner(resolver, materializer)
 }
 

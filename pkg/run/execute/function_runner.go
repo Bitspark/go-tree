@@ -87,55 +87,37 @@ func (r *FunctionRunner) ExecuteFunc(
 		return nil, fmt.Errorf("failed to generate wrapper code: %w", err)
 	}
 
-	// Create a temporary module with a proper go.mod that includes the target module
-	tmpModule, err := createTempModule(module.Path, code, funcSymbol.Package.ImportPath)
+	// Create a temporary directory for the wrapper
+	wrapperDir, err := os.MkdirTemp("", "go-tree-wrapper-*")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temporary module: %w", err)
+		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
+	defer os.RemoveAll(wrapperDir)
 
-	// Use materializer to create an execution environment
-	opts := materialize.MaterializeOptions{
-		DependencyPolicy: materialize.DirectDependenciesOnly,
-		ReplaceStrategy:  materialize.RelativeReplace,
-		LayoutStrategy:   materialize.FlatLayout,
-		RunGoModTidy:     false, // Disable to prevent it from trying to download modules
-		EnvironmentVars:  make(map[string]string),
-	}
+	// Create wrapper module path
+	wrapperModulePath := module.Path + "_wrapper"
 
-	// Apply security policy to environment options
-	if r.Security != nil {
-		for k, v := range r.Security.GetEnvironmentVariables() {
-			opts.EnvironmentVars[k] = v
-		}
-	}
-
-	// Materialize the environment with the main module and dependencies
-	env, err := r.Materializer.MaterializeMultipleModules(
-		[]*typesys.Module{tmpModule, module}, opts)
+	// Make sure we have absolute paths for replacements
+	moduleAbsDir, err := filepath.Abs(module.Dir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to materialize environment: %w", err)
+		return nil, fmt.Errorf("failed to get absolute path for module: %w", err)
 	}
-	defer env.Cleanup()
-
-	// Get directory paths from the environment
-	wrapperDir := env.ModulePaths[tmpModule.Path]
-	targetModuleDir := env.ModulePaths[module.Path]
 
 	// Create an explicit go.mod with the replacement directive for the target module
 	goModContent := fmt.Sprintf(`module %s
 
-go 1.16
+go 1.19
 
 require %s v0.0.0
 
 replace %s => %s
 `,
-		tmpModule.Path,
+		wrapperModulePath,
 		funcSymbol.Package.ImportPath,
 		funcSymbol.Package.ImportPath,
-		targetModuleDir)
+		moduleAbsDir)
 
-	// Write the go.mod and main.go files directly to ensure correct content
+	// Write the go.mod and main.go files directly
 	if err := os.WriteFile(filepath.Join(wrapperDir, "go.mod"), []byte(goModContent), 0644); err != nil {
 		return nil, fmt.Errorf("failed to write go.mod: %w", err)
 	}
@@ -144,11 +126,39 @@ replace %s => %s
 		return nil, fmt.Errorf("failed to write main.go: %w", err)
 	}
 
-	// Execute in the materialized environment
-	mainFile := filepath.Join(wrapperDir, "main.go")
-	execResult, err := r.Executor.Execute(env, []string{"go", "run", mainFile})
+	// Create a temporary environment for execution
+	env := &materialize.Environment{
+		RootDir: wrapperDir, // Use wrapper dir as root
+		ModulePaths: map[string]string{
+			wrapperModulePath: wrapperDir,
+			module.Path:       moduleAbsDir,
+		},
+		IsTemporary: true,
+		EnvVars:     make(map[string]string),
+	}
+
+	// Apply security policy to environment
+	if r.Security != nil {
+		for k, v := range r.Security.GetEnvironmentVariables() {
+			env.EnvVars[k] = v
+		}
+	}
+
+	// Save generated code for debugging
+	debugCode := fmt.Sprintf("\n--- Generated wrapper code ---\n%s\n--- go.mod ---\n%s\n",
+		code, goModContent)
+	os.WriteFile(filepath.Join(wrapperDir, "debug.txt"), []byte(debugCode), 0644)
+
+	// Set the working directory for the executor if it's a GoExecutor
+	if goExec, ok := r.Executor.(*GoExecutor); ok {
+		goExec.WorkingDir = wrapperDir
+	}
+
+	// Execute in the materialized environment with proper working directory
+	execResult, err := r.Executor.Execute(env, []string{"go", "run", "."})
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute function: %w", err)
+		// If execution fails, try to read the debug file for more information
+		return nil, fmt.Errorf("failed to execute function: %w\nworking dir: %s", err, wrapperDir)
 	}
 
 	// Process the result
@@ -214,6 +224,10 @@ func createTempModule(basePath string, mainCode string, dependencies ...string) 
 	// Create the module
 	module := typesys.NewModule("")
 	module.Path = wrapperModulePath
+
+	// The content will be written to disk by the materializer
+	// and the go.mod will be created when we call writeWrapperFiles
+	// in ExecuteFunc
 
 	// Create a package for the wrapper
 	pkg := typesys.NewPackage(module, "main", wrapperModulePath)

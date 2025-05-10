@@ -27,3 +27,28 @@ func FetchData(shouldFail bool) (string, error) {
 	}
 	return "data", nil
 }
+
+// Global counter to track attempts across function calls
+var temporaryFailureCounter int
+
+// TemporaryFailure simulates a function that fails temporarily
+// It will fail the given number of times, then succeed
+func TemporaryFailure(failCount int) (string, error) {
+	temporaryFailureCounter++
+
+	if temporaryFailureCounter <= failCount {
+		return "", fmt.Errorf("temporary failure (attempt %d of %d)", temporaryFailureCounter, failCount)
+	}
+
+	// Reset counter for next test run
+	defer func() {
+		temporaryFailureCounter = 0
+	}()
+
+	return "success after retries", nil
+}
+
+// PermanentFailure always fails with a permanent error
+func PermanentFailure(unused int) (string, error) {
+	return "", errors.New("permanent failure that should not be retried")
+}

@@ -11,6 +11,21 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
+// Dependency represents a module dependency
+type Dependency struct {
+	// Import path of the dependency
+	ImportPath string
+
+	// Version requirement
+	Version string
+
+	// Whether this is a local dependency
+	IsLocal bool
+
+	// The filesystem path for local dependencies
+	FilesystemPath string
+}
+
 // Module represents a complete Go module with full type information.
 // It serves as the root container for packages, files, and symbols.
 type Module struct {
@@ -27,6 +42,12 @@ type Module struct {
 	// Dependency tracking
 	dependencies map[string][]string // Map from file to files it imports
 	dependents   map[string][]string // Map from file to files that import it
+
+	// Direct dependencies of this module
+	Dependencies []*Dependency
+
+	// Replacement directives (key: import path, value: replacement path)
+	Replacements map[string]string
 }
 
 // LoadOptions provides configuration for module loading.
@@ -79,6 +100,8 @@ func NewModule(dir string) *Module {
 		pkgCache:     make(map[string]*packages.Package),
 		dependencies: make(map[string][]string),
 		dependents:   make(map[string][]string),
+		Dependencies: make([]*Dependency, 0),
+		Replacements: make(map[string]string),
 	}
 }
 
@@ -119,19 +142,36 @@ func (m *Module) AddDependency(from, to string) {
 
 // FindAffectedFiles identifies all files affected by changes to the given files.
 func (m *Module) FindAffectedFiles(changedFiles []string) []string {
+	// Use a map to avoid duplicates
 	affected := make(map[string]bool)
 	for _, file := range changedFiles {
 		affected[file] = true
-		for _, dependent := range m.dependents[file] {
-			affected[dependent] = true
+		deps := m.findDependentsRecursive(file, make(map[string]bool))
+		for dep := range deps {
+			affected[dep] = true
 		}
 	}
 
+	// Convert map to slice
 	result := make([]string, 0, len(affected))
 	for file := range affected {
 		result = append(result, file)
 	}
 	return result
+}
+
+// findDependentsRecursive recursively finds all files that depend on the given file.
+func (m *Module) findDependentsRecursive(file string, visited map[string]bool) map[string]bool {
+	if visited[file] {
+		return visited
+	}
+	visited[file] = true
+
+	for _, dep := range m.dependents[file] {
+		m.findDependentsRecursive(dep, visited)
+	}
+
+	return visited
 }
 
 // UpdateChangedFiles updates only the changed files and their dependents.
@@ -176,7 +216,7 @@ func (m *Module) FindImplementations(iface *Symbol) ([]*Symbol, error) {
 	return nil, nil
 }
 
-// ApplyTransformation applies a code transformation.
+// ApplyTransformation applies a code transformation to the module.
 func (m *Module) ApplyTransformation(t Transformation) (*TransformResult, error) {
 	// Validate the transformation first
 	if err := t.Validate(m); err != nil {

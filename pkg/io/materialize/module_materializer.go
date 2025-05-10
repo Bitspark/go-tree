@@ -1,12 +1,13 @@
 package materialize
 
 import (
-	saver2 "bitspark.dev/go-tree/pkg/io/saver"
 	"bytes"
 	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	saver2 "bitspark.dev/go-tree/pkg/io/saver"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
 	"bitspark.dev/go-tree/pkg/run/toolkit"
@@ -22,6 +23,9 @@ type ModuleMaterializer struct {
 
 	// Filesystem for module operations
 	fs toolkit.ModuleFS
+
+	// Registry for module resolution
+	registry interface{} // Will be properly typed when we import the resolve package
 }
 
 // NewModuleMaterializer creates a new materializer with default options
@@ -36,6 +40,7 @@ func NewModuleMaterializerWithOptions(options MaterializeOptions) *ModuleMateria
 		Saver:     saver2.NewGoModuleSaver(),
 		toolchain: toolkit.NewStandardGoToolchain(),
 		fs:        toolkit.NewStandardModuleFS(),
+		registry:  options.Registry, // Use registry from options if provided
 	}
 }
 
@@ -48,6 +53,21 @@ func (m *ModuleMaterializer) WithToolchain(toolchain toolkit.GoToolchain) *Modul
 // WithFS sets a custom filesystem
 func (m *ModuleMaterializer) WithFS(fs toolkit.ModuleFS) *ModuleMaterializer {
 	m.fs = fs
+	return m
+}
+
+// WithRegistry sets the registry
+func (m *ModuleMaterializer) WithRegistry(registry interface{}) *ModuleMaterializer {
+	m.registry = registry
+	return m
+}
+
+// WithOptions sets the options for this materializer
+func (m *ModuleMaterializer) WithOptions(options MaterializeOptions) *ModuleMaterializer {
+	m.Options = options
+	if options.Registry != nil {
+		m.registry = options.Registry
+	}
 	return m
 }
 
@@ -106,6 +126,11 @@ func (m *ModuleMaterializer) materializeModules(modules []*typesys.Module, opts 
 		opts = m.Options
 	}
 
+	// If registry wasn't provided in options but materializer has one, use it
+	if opts.Registry == nil && m.registry != nil {
+		opts.Registry = m.registry
+	}
+
 	// Create root directory if needed
 	rootDir := opts.TargetDir
 	isTemporary := false
@@ -158,28 +183,8 @@ func (m *ModuleMaterializer) materializeModules(modules []*typesys.Module, opts 
 
 // materializeModule materializes a single module
 func (m *ModuleMaterializer) materializeModule(module *typesys.Module, rootDir string, env *Environment, opts MaterializeOptions) error {
-	// Determine module directory based on layout strategy
-	var moduleDir string
-
-	switch opts.LayoutStrategy {
-	case FlatLayout:
-		// Use module name as directory name
-		safeName := strings.ReplaceAll(module.Path, "/", "_")
-		moduleDir = filepath.Join(rootDir, safeName)
-
-	case HierarchicalLayout:
-		// Use full path hierarchy
-		moduleDir = filepath.Join(rootDir, module.Path)
-
-	case GoPathLayout:
-		// Use GOPATH-like layout with src directory
-		moduleDir = filepath.Join(rootDir, "src", module.Path)
-
-	default:
-		// Default to flat layout
-		safeName := strings.ReplaceAll(module.Path, "/", "_")
-		moduleDir = filepath.Join(rootDir, safeName)
-	}
+	// Determine module directory using enhanced path creation
+	moduleDir := CreateUniqueModulePath(env, opts.LayoutStrategy, module.Path)
 
 	// Create module directory
 	if err := m.fs.MkdirAll(moduleDir, 0755); err != nil {
@@ -204,14 +209,136 @@ func (m *ModuleMaterializer) materializeModule(module *typesys.Module, rootDir s
 
 	// Handle dependencies based on policy
 	if opts.DependencyPolicy != NoDependencies {
-		if err := m.materializeDependencies(module, rootDir, env, opts); err != nil {
-			return err
+		// Check if module has explicit dependencies from registry
+		if len(module.Dependencies) > 0 && opts.Registry != nil {
+			// Use explicit dependencies
+			if err := m.materializeExplicitDependencies(module, rootDir, env, opts); err != nil {
+				return err
+			}
+		} else {
+			// Use traditional approach
+			if err := m.materializeDependencies(module, rootDir, env, opts); err != nil {
+				return err
+			}
 		}
 	}
 
 	// Generate/update go.mod file with proper dependencies and replacements
 	if err := m.generateGoMod(module, moduleDir, env, opts); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// materializeExplicitDependencies materializes dependencies based on explicit module.Dependencies
+func (m *ModuleMaterializer) materializeExplicitDependencies(module *typesys.Module, rootDir string, env *Environment, opts MaterializeOptions) error {
+	// Process each dependency
+	for _, dep := range module.Dependencies {
+		// Skip if already materialized
+		if _, ok := env.ModulePaths[dep.ImportPath]; ok {
+			continue
+		}
+
+		// Handle local dependencies differently
+		if dep.IsLocal && dep.FilesystemPath != "" {
+			// Materialize local dependency
+			moduleDir, err := m.materializeLocalModule(dep.FilesystemPath, dep.ImportPath, rootDir, env, opts)
+			if err != nil {
+				if opts.Verbose {
+					fmt.Printf("Warning: failed to materialize local dependency %s: %v\n", dep.ImportPath, err)
+				}
+				continue
+			}
+
+			// Store the module path
+			env.ModulePaths[dep.ImportPath] = moduleDir
+
+			// Handle transitive dependencies if needed
+			if opts.DependencyPolicy == AllDependencies {
+				// Load information about the module to use in recursive call
+				depModule := &typesys.Module{
+					Path: dep.ImportPath,
+					Dir:  dep.FilesystemPath,
+				}
+
+				if err := m.materializeDependencies(depModule, rootDir, env, opts); err != nil {
+					if opts.Verbose {
+						fmt.Printf("Warning: failed to materialize dependencies of %s: %v\n", dep.ImportPath, err)
+					}
+				}
+			}
+
+			continue
+		}
+
+		// For non-local dependencies, use the toolchain
+		ctx := context.Background()
+		depDir, err := m.toolchain.FindModule(ctx, dep.ImportPath, dep.Version)
+		if err != nil {
+			if opts.Verbose {
+				fmt.Printf("Warning: could not find module %s@%s in cache: %v\n", dep.ImportPath, dep.Version, err)
+			}
+
+			// Try to download if enabled
+			if opts.DownloadMissing {
+				// We need to create a download command using the toolchain
+				cmd := []string{"get", "-d"}
+				if dep.Version != "" {
+					cmd = append(cmd, dep.ImportPath+"@"+dep.Version)
+				} else {
+					cmd = append(cmd, dep.ImportPath)
+				}
+
+				output, err := m.toolchain.RunCommand(ctx, cmd[0], cmd[1:]...)
+				if err != nil {
+					if opts.Verbose {
+						fmt.Printf("Warning: failed to download module %s@%s: %v\n%s\n",
+							dep.ImportPath, dep.Version, err, string(output))
+					}
+					continue
+				}
+
+				// Try finding it again after download
+				depDir, err = m.toolchain.FindModule(ctx, dep.ImportPath, dep.Version)
+				if err != nil {
+					if opts.Verbose {
+						fmt.Printf("Warning: still cannot find module after download %s@%s: %v\n",
+							dep.ImportPath, dep.Version, err)
+					}
+					continue
+				}
+			} else {
+				continue
+			}
+		}
+
+		// Copy the module to the materialization location
+		moduleDir, err := m.materializeLocalModule(depDir, dep.ImportPath, rootDir, env, opts)
+		if err != nil {
+			if opts.Verbose {
+				fmt.Printf("Warning: failed to materialize dependency %s: %v\n", dep.ImportPath, err)
+			}
+			continue
+		}
+
+		// Store the module path
+		env.ModulePaths[dep.ImportPath] = moduleDir
+
+		// Handle transitive dependencies if needed
+		if opts.DependencyPolicy == AllDependencies {
+			// Load information about the module to use in recursive call
+			depModule := &typesys.Module{
+				Path: dep.ImportPath,
+				Dir:  depDir,
+			}
+
+			if err := m.materializeDependencies(depModule, rootDir, env, opts); err != nil {
+				if opts.Verbose {
+					fmt.Printf("Warning: failed to materialize dependencies of %s: %v\n", dep.ImportPath, err)
+				}
+			}
+		}
 	}
 
 	return nil
@@ -445,6 +572,48 @@ func (m *ModuleMaterializer) generateGoMod(module *typesys.Module, moduleDir str
 			replacePaths[origPath] = replPath
 		}
 
+		// Handle registry-based replacements if enabled
+		if opts.UseRegistryForReplacements && opts.Registry != nil {
+			// Get the registry
+			registry := opts.Registry
+			// Use interface with type assertion to access registry methods
+			if registry, ok := registry.(interface {
+				ListModules() []interface{}
+			}); ok {
+				// Get all modules in the registry
+				modules := registry.ListModules()
+
+				// Add replacements for each module in the registry
+				for _, mod := range modules {
+					// Extract the import path and filesystem path using reflection
+					var importPath, fsPath string
+
+					if pathGetter, ok := mod.(interface {
+						GetImportPath() string
+					}); ok {
+						importPath = pathGetter.GetImportPath()
+					}
+
+					if fsPathGetter, ok := mod.(interface {
+						GetFilesystemPath() string
+					}); ok {
+						fsPath = fsPathGetter.GetFilesystemPath()
+					}
+
+					if importPath != "" && fsPath != "" {
+						// Add replacement
+						replacePaths[importPath] = fsPath
+					}
+				}
+			}
+		}
+
+		// Handle explicit replacements
+		for importPath, replacementPath := range opts.ExplicitReplacements {
+			replacePaths[importPath] = replacementPath
+		}
+
+		// Handle materialized dependencies
 		for depPath := range deps {
 			if depDir, ok := env.ModulePaths[depPath]; ok {
 				// We have this dependency materialized, add a replace directive

@@ -1,12 +1,13 @@
 package resolve
 
 import (
-	"bitspark.dev/go-tree/pkg/io/loader"
 	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"bitspark.dev/go-tree/pkg/io/loader"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
 	"bitspark.dev/go-tree/pkg/run/toolkit"
@@ -37,6 +38,9 @@ type ModuleResolver struct {
 
 	// Middleware chain for resolution
 	middlewareChain *toolkit.MiddlewareChain
+
+	// Registry for module resolution
+	registry ModuleRegistry
 }
 
 // NewModuleResolver creates a new module resolver with default options
@@ -70,6 +74,12 @@ func (r *ModuleResolver) WithFS(fs toolkit.ModuleFS) *ModuleResolver {
 	return r
 }
 
+// WithRegistry sets the module registry
+func (r *ModuleResolver) WithRegistry(registry ModuleRegistry) *ModuleResolver {
+	r.registry = registry
+	return r
+}
+
 // Use adds middleware to the chain
 func (r *ModuleResolver) Use(middleware ...toolkit.ResolutionMiddleware) *ModuleResolver {
 	r.middlewareChain.Add(middleware...)
@@ -80,6 +90,62 @@ func (r *ModuleResolver) Use(middleware ...toolkit.ResolutionMiddleware) *Module
 func (r *ModuleResolver) ResolveModule(path, version string, opts ResolveOptions) (*typesys.Module, error) {
 	// Create context for toolchain operations
 	ctx := context.Background()
+
+	// Check if we have a registry and this path is in it
+	if r.registry != nil {
+		// First check if the path is a filesystem path
+		if filepath.IsAbs(path) || strings.HasPrefix(path, ".") {
+			// This is a filesystem path, check if it's in the registry
+			if module, ok := r.registry.FindByPath(path); ok {
+				// We found it in the registry, use its cached module if available
+				if module.Module != nil {
+					return module.Module, nil
+				}
+
+				// Otherwise, load the module and cache it
+				mod, err := loader.LoadModule(module.FilesystemPath, &typesys.LoadOptions{
+					IncludeTests: opts.IncludeTests,
+				})
+				if err != nil {
+					return nil, &ResolutionError{
+						ImportPath: module.ImportPath,
+						Version:    version,
+						Reason:     "could not load module",
+						Err:        err,
+					}
+				}
+
+				// Cache the loaded module
+				module.Module = mod
+				return mod, nil
+			}
+		} else {
+			// This is an import path, check if it's in the registry
+			if module, ok := r.registry.FindModule(path); ok {
+				// We found it in the registry, use its cached module if available
+				if module.Module != nil {
+					return module.Module, nil
+				}
+
+				// Otherwise, load the module and cache it
+				mod, err := loader.LoadModule(module.FilesystemPath, &typesys.LoadOptions{
+					IncludeTests: opts.IncludeTests,
+				})
+				if err != nil {
+					return nil, &ResolutionError{
+						ImportPath: path,
+						Version:    version,
+						Reason:     "could not load module",
+						Err:        err,
+					}
+				}
+
+				// Cache the loaded module
+				module.Module = mod
+				return mod, nil
+			}
+		}
+	}
 
 	// Apply any options from the middleware chain
 	if opts.UseResolutionCache && r.middlewareChain != nil {
@@ -154,6 +220,12 @@ func (r *ModuleResolver) ResolveModule(path, version string, opts ResolveOptions
 		cacheKey += "@" + version
 	}
 	r.resolvedModules[cacheKey] = module
+
+	// If we have a registry, register this module
+	if r.registry != nil {
+		isLocal := filepath.IsAbs(path) || strings.HasPrefix(path, ".")
+		_ = r.registry.RegisterModule(module.Path, module.Dir, isLocal)
+	}
 
 	// Resolve dependencies if needed
 	if opts.DependencyPolicy != NoDependencies {
