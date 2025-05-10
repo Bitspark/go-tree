@@ -3,8 +3,6 @@ package execute
 import (
 	"fmt"
 	"os"
-
-	"bitspark.dev/go-tree/pkg/io/materialize"
 )
 
 // StandardSecurityPolicy implements basic security constraints for execution
@@ -60,28 +58,14 @@ func (p *StandardSecurityPolicy) WithEnvVar(key, value string) *StandardSecurity
 }
 
 // ApplyToEnvironment applies security constraints to an environment
-func (p *StandardSecurityPolicy) ApplyToEnvironment(env *materialize.Environment) error {
+func (p *StandardSecurityPolicy) ApplyToEnvironment(env Environment) error {
 	if env == nil {
 		return fmt.Errorf("environment cannot be nil")
 	}
 
-	// Set environment variables for security constraints
-	if !p.AllowNetwork {
-		env.SetEnvVar("SANDBOX_NETWORK", "disabled")
-	}
-
-	if !p.AllowFileIO {
-		env.SetEnvVar("SANDBOX_FILEIO", "disabled")
-	}
-
-	if p.MemoryLimit > 0 {
-		env.SetEnvVar("GOMEMLIMIT", fmt.Sprintf("%d", p.MemoryLimit))
-	}
-
-	// Add any custom environment variables
-	for k, v := range p.EnvVars {
-		env.SetEnvVar(k, v)
-	}
+	// We can't directly set environment variables on the interface
+	// Instead, we'll return environment variables via GetEnvironmentVariables()
+	// which will be applied by the Executor
 
 	return nil
 }

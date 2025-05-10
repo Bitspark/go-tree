@@ -1,11 +1,15 @@
-// Package execute2 provides a redesigned approach to executing Go code with type awareness.
+// Package execute provides a redesigned approach to executing Go code with type awareness.
 // It integrates with the resolve and materialize packages for improved functionality.
 package execute
 
 import (
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/io/materialize"
+	"bitspark.dev/go-tree/pkg/run/execute/materializeinterface"
 )
+
+// Alias the interfaces from materializeinterface for convenience
+type ModuleMaterializer = materializeinterface.ModuleMaterializer
+type Environment = materializeinterface.Environment
 
 // TestResult contains the result of running tests
 type TestResult struct {
@@ -34,29 +38,38 @@ type TestResult struct {
 	Coverage float64
 }
 
-// Executor defines the core execution capabilities
-type Executor interface {
-	// Execute a command in a materialized environment
-	Execute(env *materialize.Environment, command []string) (*ExecutionResult, error)
+// ModuleResolver resolves modules by import path
+type ModuleResolver interface {
+	// ResolveModule resolves a module by import path and version
+	ResolveModule(path, version string, opts interface{}) (interface{}, error)
 
-	// Execute a function in a materialized environment
-	ExecuteFunc(env *materialize.Environment, module *typesys.Module,
+	// ResolveDependencies resolves dependencies for a module
+	ResolveDependencies(module interface{}, depth int) error
+}
+
+// Executor executes commands in an environment
+type Executor interface {
+	// Execute executes a command in an environment
+	Execute(env Environment, command []string) (*ExecutionResult, error)
+
+	// ExecuteFunc executes a function in a materialized environment
+	ExecuteFunc(env Environment, module *typesys.Module,
 		funcSymbol *typesys.Symbol, args ...interface{}) (interface{}, error)
 }
 
-// ExecutionResult contains the result of executing a command
+// ExecutionResult represents the result of executing a command
 type ExecutionResult struct {
+	// Exit code of the command
+	ExitCode int
+
+	// Standard output
+	Stdout string
+
+	// Standard error
+	Stderr string
+
 	// Command that was executed
 	Command string
-
-	// StdOut from the command
-	StdOut string
-
-	// StdErr from the command
-	StdErr string
-
-	// Exit code
-	ExitCode int
 
 	// Error if any occurred during execution
 	Error error
@@ -78,10 +91,10 @@ type ResultProcessor interface {
 	ProcessFunctionResult(result *ExecutionResult, funcSymbol *typesys.Symbol) (interface{}, error)
 }
 
-// SecurityPolicy defines constraints for code execution
+// SecurityPolicy defines a security policy for code execution
 type SecurityPolicy interface {
-	// Apply security constraints to an environment
-	ApplyToEnvironment(env *materialize.Environment) error
+	// ApplyToEnvironment applies the security policy to an environment
+	ApplyToEnvironment(env Environment) error
 
 	// Apply security constraints to command execution
 	ApplyToExecution(command []string) []string

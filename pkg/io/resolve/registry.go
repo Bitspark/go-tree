@@ -149,7 +149,6 @@ func (r *StandardModuleRegistry) ListModules() []*ResolvedModule {
 
 // CreateResolver creates a resolver configured with this registry
 func (r *StandardModuleRegistry) CreateResolver() Resolver {
-	// For now, return a basic resolver
-	// In Phase 2, we'll implement a registry-aware resolver
-	return NewModuleResolver()
+	// Create a new resolver and set this registry
+	return NewModuleResolver().WithRegistry(r)
 }

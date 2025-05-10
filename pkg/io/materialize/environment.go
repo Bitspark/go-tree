@@ -6,8 +6,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"bitspark.dev/go-tree/pkg/run/execute/materializeinterface"
 	"bitspark.dev/go-tree/pkg/toolkit"
 )
+
+// Verify that Environment implements the interface
+var _ materializeinterface.Environment = (*Environment)(nil)
 
 // Environment represents materialized modules and provides operations on them
 type Environment struct {
@@ -180,4 +184,14 @@ func (e *Environment) FileExists(modulePath, relPath string) bool {
 	// Fallback to standard library
 	_, err := os.Stat(fullPath)
 	return err == nil
+}
+
+// GetPath returns the root directory path
+func (e *Environment) GetPath() string {
+	return e.RootDir
+}
+
+// SetOwned sets whether this environment is temporary (owned)
+func (e *Environment) SetOwned(owned bool) {
+	e.IsTemporary = owned
 }

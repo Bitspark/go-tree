@@ -99,6 +99,13 @@ func (r *ModuleResolver) ResolveModule(path, version string, opts ResolveOptions
 			if module, ok := r.registry.FindByPath(path); ok {
 				// We found it in the registry, use its cached module if available
 				if module.Module != nil {
+					// If the module is already loaded but deps are requested and not loaded,
+					// we need to load dependencies still
+					if opts.DependencyPolicy != NoDependencies && len(module.Module.Dependencies) == 0 {
+						if err := r.ResolveDependencies(module.Module, opts.DependencyDepth); err != nil {
+							return module.Module, err // Return the module even if dependencies failed
+						}
+					}
 					return module.Module, nil
 				}
 
@@ -117,6 +124,19 @@ func (r *ModuleResolver) ResolveModule(path, version string, opts ResolveOptions
 
 				// Cache the loaded module
 				module.Module = mod
+
+				// Resolve dependencies if needed
+				if opts.DependencyPolicy != NoDependencies {
+					depth := opts.DependencyDepth
+					if opts.DependencyPolicy == DirectDependenciesOnly && depth > 1 {
+						depth = 1
+					}
+
+					if err := r.ResolveDependencies(mod, depth); err != nil {
+						return mod, err // Return the module even if dependencies failed
+					}
+				}
+
 				return mod, nil
 			}
 		} else {
@@ -124,6 +144,13 @@ func (r *ModuleResolver) ResolveModule(path, version string, opts ResolveOptions
 			if module, ok := r.registry.FindModule(path); ok {
 				// We found it in the registry, use its cached module if available
 				if module.Module != nil {
+					// If the module is already loaded but deps are requested and not loaded,
+					// we need to load dependencies still
+					if opts.DependencyPolicy != NoDependencies && len(module.Module.Dependencies) == 0 {
+						if err := r.ResolveDependencies(module.Module, opts.DependencyDepth); err != nil {
+							return module.Module, err // Return the module even if dependencies failed
+						}
+					}
 					return module.Module, nil
 				}
 
@@ -142,6 +169,19 @@ func (r *ModuleResolver) ResolveModule(path, version string, opts ResolveOptions
 
 				// Cache the loaded module
 				module.Module = mod
+
+				// Resolve dependencies if needed
+				if opts.DependencyPolicy != NoDependencies {
+					depth := opts.DependencyDepth
+					if opts.DependencyPolicy == DirectDependenciesOnly && depth > 1 {
+						depth = 1
+					}
+
+					if err := r.ResolveDependencies(mod, depth); err != nil {
+						return mod, err // Return the module even if dependencies failed
+					}
+				}
+
 				return mod, nil
 			}
 		}
@@ -261,8 +301,140 @@ func (r *ModuleResolver) ResolveDependencies(module *typesys.Module, depth int) 
 	// Create initial resolution path
 	path := []string{module.Path}
 
-	// Call helper function with path tracking
-	return r.resolveDependenciesWithPath(module, depth, path)
+	// Read the go.mod file directly
+	goModPath := filepath.Join(module.Dir, "go.mod")
+	content, err := r.fs.ReadFile(goModPath)
+	if err != nil {
+		return &ResolutionError{
+			Module: module.Path,
+			Reason: "failed to read go.mod file",
+			Err:    err,
+		}
+	}
+
+	// Parse the dependencies
+	deps, replacements, err := parseGoMod(string(content))
+	if err != nil {
+		return &ResolutionError{
+			Module: module.Path,
+			Reason: "failed to parse go.mod",
+			Err:    err,
+		}
+	}
+
+	// Store replacements for this module
+	r.replacements[module.Dir] = replacements
+
+	// Process each dependency
+	for importPath, version := range deps {
+		// Handle replacement if any
+		replacement, hasReplacement := replacements[importPath]
+
+		// Create the dependency object
+		var depDir string
+
+		if hasReplacement {
+			// Handle local replacements
+			if strings.HasPrefix(replacement, ".") || strings.HasPrefix(replacement, "/") {
+				// Local filesystem replacement - convert relative to absolute
+				if strings.HasPrefix(replacement, ".") {
+					replacement = filepath.Join(module.Dir, replacement)
+				}
+				depDir = replacement
+			} else {
+				// Remote replacement - try to find in module cache
+				depDir, err = r.FindModuleLocation(replacement, version)
+				if err != nil {
+					if r.Options.DownloadMissing {
+						depDir, err = r.EnsureModuleAvailable(replacement, version)
+					}
+					if err != nil {
+						if r.Options.Verbose {
+							fmt.Printf("Warning: Error finding replacement: %v\n", err)
+						}
+						continue // Skip if can't find replacement
+					}
+				}
+			}
+		} else {
+			// Standard module resolution
+			depDir, err = r.FindModuleLocation(importPath, version)
+			if err != nil {
+				if r.Options.DownloadMissing {
+					depDir, err = r.EnsureModuleAvailable(importPath, version)
+				}
+				if err != nil {
+					if r.Options.Verbose {
+						fmt.Printf("Warning: Error finding module: %v\n", err)
+					}
+					continue // Skip if can't find module
+				}
+			}
+		}
+
+		// Check if dependency already exists in the module
+		exists := false
+		for _, existing := range module.Dependencies {
+			if existing.ImportPath == importPath {
+				exists = true
+				break
+			}
+		}
+
+		if !exists {
+			// Add the dependency to the module
+			isLocal := strings.HasPrefix(depDir, ".") || filepath.IsAbs(depDir)
+			module.Dependencies = append(module.Dependencies, &typesys.Dependency{
+				ImportPath:     importPath,
+				Version:        version,
+				IsLocal:        isLocal,
+				FilesystemPath: depDir,
+			})
+		}
+
+		// Recursively resolve dependencies if depth allows
+		if depth > 1 {
+			// Load the dependency module if needed
+			var depModule *typesys.Module
+			cacheKey := importPath
+			if version != "" {
+				cacheKey += "@" + version
+			}
+
+			// Check if already loaded
+			var ok bool
+			depModule, ok = r.resolvedModules[cacheKey]
+			if !ok {
+				// Load the module
+				depModule, err = loader.LoadModule(depDir, &typesys.LoadOptions{
+					IncludeTests: false, // Usually don't need tests from dependencies
+				})
+				if err != nil {
+					if r.Options.Verbose {
+						fmt.Printf("Warning: Error loading dependency module: %v\n", err)
+					}
+					continue
+				}
+
+				// Cache it
+				r.resolvedModules[cacheKey] = depModule
+			}
+
+			// Add this module to the path to detect circular dependencies
+			newPath := append([]string{}, path...)
+			newPath = append(newPath, importPath)
+
+			// Resolve dependencies for this module with decremented depth
+			if err := r.resolveDependenciesWithPath(depModule, depth-1, newPath); err != nil {
+				if r.Options.Verbose {
+					fmt.Printf("Warning: Error resolving recursive dependencies: %v\n", err)
+				}
+				// Continue with other dependencies
+			}
+		}
+	}
+
+	return nil
 }
 
 // resolveDependenciesWithPath resolves dependencies with path tracking for circular dependency detection
@@ -304,6 +476,8 @@ func (r *ModuleResolver) resolveDependenciesWithPath(module *typesys.Module, dep
 	for importPath, version := range deps {
 		// Skip if already loaded
 		if r.isModuleLoaded(importPath) {
+			// Add as a dependency even if it's already loaded if it's not in the module's dependencies list
+			r.addDependencyIfMissing(module, importPath, version, replacements)
 			continue
 		}
 
@@ -349,6 +523,63 @@ func (r *ModuleResolver) resolveDependenciesWithPath(module *typesys.Module, dep
 	}
 
 	return nil
+}
+
+// addDependencyIfMissing adds an already loaded dependency to a module if it's not already there
+func (r *ModuleResolver) addDependencyIfMissing(module *typesys.Module, importPath, version string, replacements map[string]string) {
+	// Check if this dependency is already in the module's dependencies
+	for _, dep := range module.Dependencies {
+		if dep.ImportPath == importPath {
+			return // Already there
+		}
+	}
+
+	// It's not there, so add it
+	var depDir string
+	var err error
+
+	// Handle replacement
+	replacement, hasReplacement := replacements[importPath]
+	if hasReplacement {
+		if strings.HasPrefix(replacement, ".") || strings.HasPrefix(replacement, "/") {
+			// Local filesystem replacement
+			if strings.HasPrefix(replacement, ".") {
+				replacement = filepath.Join(module.Dir, replacement)
+			}
+			depDir = replacement
+		} else {
+			// Remote replacement, find in cache
+			depDir, err = r.FindModuleLocation(replacement, version)
+			if err != nil {
+				// Skip if not found
+				if r.Options.Verbose {
+					fmt.Printf("Warning: Could not find replacement module %s: %v\n", replacement, err)
+				}
+				return
+			}
+		}
+	} else {
+		// Standard module resolution
+		depDir, err = r.FindModuleLocation(importPath, version)
+		if err != nil {
+			// Skip if not found
+			if r.Options.Verbose {
+				fmt.Printf("Warning: Could not find module %s: %v\n", importPath, err)
+			}
+			return
+		}
+	}
+
+	// Add the dependency
+	isLocal := strings.HasPrefix(depDir, ".") || filepath.IsAbs(depDir)
+	dependency := &typesys.Dependency{
+		ImportPath:     importPath,
+		Version:        version,
+		IsLocal:        isLocal,
+		FilesystemPath: depDir,
+	}
+
+	module.Dependencies = append(module.Dependencies, dependency)
 }
 
 // loadDependencyWithPath loads a single dependency with path tracking for circular dependency detection
@@ -439,6 +670,28 @@ func (r *ModuleResolver) loadDependencyWithPath(fromModule *typesys.Module, impo
 
 	// Store the resolved module
 	r.resolvedModules[importPath+"@"+version] = depModule
+
+	// Add the dependency to the module's Dependencies slice
+	isLocal := strings.HasPrefix(depDir, ".") || filepath.IsAbs(depDir)
+	dependency := &typesys.Dependency{
+		ImportPath:     importPath,
+		Version:        version,
+		IsLocal:        isLocal,
+		FilesystemPath: depDir,
+	}
+
+	// Check if dependency already exists before adding
+	exists := false
+	for _, dep := range fromModule.Dependencies {
+		if dep.ImportPath == importPath {
+			exists = true
+			break
+		}
+	}
+
+	if !exists {
+		fromModule.Dependencies = append(fromModule.Dependencies, dependency)
+	}
 
 	// Recursively load this module's dependencies with incremented depth and path
 	newDepth := depth + 1
@@ -581,51 +834,113 @@ func (r *ModuleResolver) FindModuleVersion(importPath string) (string, error) {
 func (r *ModuleResolver) BuildDependencyGraph(module *typesys.Module) (map[string][]string, error) {
 	graph := make(map[string][]string)
 
-	// Read the go.mod file
-	goModPath := filepath.Join(module.Dir, "go.mod")
-	content, err := r.fs.ReadFile(goModPath)
-	if err != nil {
-		return nil, &ResolutionError{
-			Module: module.Path,
-			Reason: "failed to read go.mod file",
-			Err:    err,
-		}
-	}
+	// Add all direct dependencies
+	if len(module.Dependencies) > 0 {
+		depPaths := make([]string, 0, len(module.Dependencies))
+		for _, dep := range module.Dependencies {
+			depPaths = append(depPaths, dep.ImportPath)
 
-	// Parse the dependencies
-	deps, _, err := parseGoMod(string(content))
-	if err != nil {
-		return nil, &ResolutionError{
-			Module: module.Path,
-			Reason: "failed to parse go.mod",
-			Err:    err,
-		}
-	}
-
-	// Add dependencies to the graph
-	depPaths := make([]string, 0, len(deps))
-	for depPath := range deps {
-		depPaths = append(depPaths, depPath)
-
-		// Recursively build the graph for this dependency
-		depModule, ok := r.getResolvedModule(depPath)
-		if ok {
-			depGraph, err := r.BuildDependencyGraph(depModule)
+			// Also load each dependency's dependencies recursively
+			depModule, err := loader.LoadModule(dep.FilesystemPath, &typesys.LoadOptions{
+				IncludeTests: false, // Don't need tests for dependencies
+			})
 			if err != nil {
-				// Log error but continue
 				if r.Options.Verbose {
-					fmt.Printf("Warning: %v\n", err)
+					fmt.Printf("Warning: Could not load dependency module at %s: %v\n", dep.FilesystemPath, err)
+				}
+				continue
+			}
+
+			// Process this module's dependencies recursively
+			depGraph, err := r.BuildDependencyGraph(depModule)
+			if err == nil {
+				// Merge the subdependency graph with the main graph
+				for k, v := range depGraph {
+					graph[k] = v
+				}
+			}
+		}
+
+		// Add this module's dependencies to the graph
+		graph[module.Path] = depPaths
+	} else {
+		// Try reading the go.mod file if the module doesn't have dependencies already loaded
+		goModPath := filepath.Join(module.Dir, "go.mod")
+		content, err := r.fs.ReadFile(goModPath)
+		if err != nil {
+			// Just create an empty entry in the graph
+			graph[module.Path] = []string{}
+			return graph, nil
+		}
+
+		// Parse the dependencies
+		deps, replacements, err := parseGoMod(string(content))
+		if err != nil {
+			// Just create an empty entry in the graph
+			graph[module.Path] = []string{}
+			return graph, nil
+		}
+
+		// Add dependencies to the graph
+		depPaths := make([]string, 0, len(deps))
+		for depPath := range deps {
+			depPaths = append(depPaths, depPath)
+
+			// Try to resolve the dependency location
+			var depDir string
+			replacement, hasReplacement := replacements[depPath]
+			if hasReplacement {
+				if strings.HasPrefix(replacement, ".") || strings.HasPrefix(replacement, "/") {
+					// Local filesystem replacement
+					if strings.HasPrefix(replacement, ".") {
+						replacement = filepath.Join(module.Dir, replacement)
+					}
+					depDir = replacement
+				} else {
+					// Try to find in cache or GOPATH
+					depDir, err = r.FindModuleLocation(replacement, "")
+					if err != nil {
+						if r.Options.Verbose {
+							fmt.Printf("Warning: Could not find replacement module %s: %v\n", replacement, err)
+						}
+						continue
+					}
 				}
 			} else {
+				// Try to find in cache or GOPATH
+				depDir, err = r.FindModuleLocation(depPath, "")
+				if err != nil {
+					if r.Options.Verbose {
+						fmt.Printf("Warning: Could not find module %s: %v\n", depPath, err)
+					}
+					continue
+				}
+			}
+
+			// Try to build graph for the dependency
+			depModule, err := loader.LoadModule(depDir, &typesys.LoadOptions{
+				IncludeTests: false,
+			})
+			if err != nil {
+				if r.Options.Verbose {
+					fmt.Printf("Warning: Could not load module at %s: %v\n", depDir, err)
+				}
+				continue
+			}
+
+			// Process the dependency's dependencies recursively
+			depGraph, err := r.BuildDependencyGraph(depModule)
+			if err == nil {
 				// Merge the dependency's graph with the main graph
 				for k, v := range depGraph {
 					graph[k] = v
 				}
 			}
 		}
+
+		graph[module.Path] = depPaths
 	}
 
-	graph[module.Path] = depPaths
 	return graph, nil
 }
 

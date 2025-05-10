@@ -127,9 +127,15 @@ func (r *TypedFunctionRunner) ResolveAndWrapIntegerFunction(
 	modulePath, pkgPath, funcName string) (IntegerFunction, error) {
 
 	// Resolve the module and function
-	module, err := r.Resolver.ResolveModule(modulePath, "", nil)
+	rawModule, err := r.Resolver.ResolveModule(modulePath, "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve module: %w", err)
+	}
+
+	// Convert interface{} to *typesys.Module
+	module, ok := rawModule.(*typesys.Module)
+	if !ok {
+		return nil, fmt.Errorf("unexpected module type: %T", rawModule)
 	}
 
 	// Find the function symbol

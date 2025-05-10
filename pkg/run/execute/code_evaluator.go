@@ -4,13 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"bitspark.dev/go-tree/pkg/io/materialize"
 )
 
 // CodeEvaluator evaluates arbitrary code
 type CodeEvaluator struct {
-	Materializer ModuleMaterializer // Changed to use the simplified interface
+	Materializer ModuleMaterializer // Uses the interface
 	Executor     Executor
 	Security     SecurityPolicy
 }
@@ -51,8 +49,10 @@ func (e *CodeEvaluator) EvaluateGoCode(code string) (*ExecutionResult, error) {
 		return nil, fmt.Errorf("failed to write code to file: %w", err)
 	}
 
-	// Create a materialized environment
-	env := materialize.NewEnvironment(tmpDir, false)
+	// Create a simple environment
+	// We're not using a materialized module here, so we create a simple environment
+	// that just wraps the temporary directory
+	env := newSimpleEnvironment(tmpDir)
 
 	// Apply security policy
 	if e.Security != nil {
@@ -77,8 +77,8 @@ func (e *CodeEvaluator) EvaluateGoPackage(packageDir string, mainFile string) (*
 		return nil, fmt.Errorf("package directory does not exist: %s", packageDir)
 	}
 
-	// Create a materialized environment
-	env := materialize.NewEnvironment(packageDir, false)
+	// Create a simple environment
+	env := newSimpleEnvironment(packageDir)
 
 	// Apply security policy
 	if e.Security != nil {
@@ -107,8 +107,8 @@ func (e *CodeEvaluator) EvaluateGoScript(scriptPath string, args ...string) (*Ex
 	// Get the directory containing the script
 	scriptDir := filepath.Dir(scriptPath)
 
-	// Create a materialized environment
-	env := materialize.NewEnvironment(scriptDir, false)
+	// Create a simple environment
+	env := newSimpleEnvironment(scriptDir)
 
 	// Apply security policy
 	if e.Security != nil {
@@ -127,4 +127,36 @@ func (e *CodeEvaluator) EvaluateGoScript(scriptPath string, args ...string) (*Ex
 	}
 
 	return result, nil
+}
+
+// SimpleEnvironment is a basic implementation of the Environment interface
+type SimpleEnvironment struct {
+	path  string
+	owned bool
+}
+
+// newSimpleEnvironment creates a new simple environment
+func newSimpleEnvironment(path string) *SimpleEnvironment {
+	return &SimpleEnvironment{
+		path:  path,
+		owned: false,
+	}
+}
+
+// GetPath returns the path of the environment
+func (e *SimpleEnvironment) GetPath() string {
+	return e.path
+}
+
+// Cleanup cleans up the environment
+func (e *SimpleEnvironment) Cleanup() error {
+	if e.owned {
+		return os.RemoveAll(e.path)
+	}
+	return nil
+}
+
+// SetOwned sets whether the environment owns its path
+func (e *SimpleEnvironment) SetOwned(owned bool) {
+	e.owned = owned
 }

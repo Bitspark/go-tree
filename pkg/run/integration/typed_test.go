@@ -1,8 +1,9 @@
 package integration
 
 import (
-	"bitspark.dev/go-tree/pkg/run/integration/testutil"
 	"testing"
+
+	"bitspark.dev/go-tree/pkg/testutil"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
 )
@@ -25,9 +26,15 @@ func TestTypedFunctionRunner(t *testing.T) {
 
 	// Resolve the module to get symbols
 	baseRunner := testutil.CreateRunner()
-	module, err := baseRunner.Resolver.ResolveModule(modulePath, "", nil)
+	rawModule, err := baseRunner.Resolver.ResolveModule(modulePath, "", nil)
 	if err != nil {
 		t.Fatalf("Failed to resolve module: %v", err)
+	}
+
+	// Type assertion to convert from interface{} to *typesys.Module
+	module, ok := rawModule.(*typesys.Module)
+	if !ok {
+		t.Fatalf("Failed to convert module: got %T, expected *typesys.Module", rawModule)
 	}
 
 	// Find the Add function

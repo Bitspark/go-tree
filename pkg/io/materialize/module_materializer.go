@@ -71,16 +71,23 @@ func (m *ModuleMaterializer) WithOptions(options MaterializeOptions) *ModuleMate
 	return m
 }
 
-// Materialize writes a module to disk with dependencies
-func (m *ModuleMaterializer) Materialize(module *typesys.Module, opts MaterializeOptions) (*Environment, error) {
+// MaterializeModule writes a module to disk with dependencies
+// This is a private implementation method renamed to avoid conflicts with the interface method
+func (m *ModuleMaterializer) materializeModule(module *typesys.Module, opts MaterializeOptions) (*Environment, error) {
 	return m.materializeModules([]*typesys.Module{module}, opts)
 }
 
 // MaterializeForExecution prepares a module for running
 func (m *ModuleMaterializer) MaterializeForExecution(module *typesys.Module, opts MaterializeOptions) (*Environment, error) {
-	env, err := m.Materialize(module, opts)
+	interfaceEnv, err := m.Materialize(module, opts)
 	if err != nil {
 		return nil, err
+	}
+
+	// Type assertion to access concrete Environment methods
+	env, ok := interfaceEnv.(*Environment)
+	if !ok {
+		return nil, fmt.Errorf("expected *Environment, got %T", interfaceEnv)
 	}
 
 	// Run additional setup for execution
@@ -166,7 +173,7 @@ func (m *ModuleMaterializer) materializeModules(modules []*typesys.Module, opts 
 
 	// Process each module
 	for _, module := range modules {
-		if err := m.materializeModule(module, rootDir, env, opts); err != nil {
+		if err := m.materializeSingleModule(module, rootDir, env, opts); err != nil {
 			// Clean up on error unless Preserve is set
 			if env.IsTemporary && !opts.Preserve {
 				if cleanupErr := env.Cleanup(); cleanupErr != nil && opts.Verbose {
@@ -182,7 +189,8 @@ func (m *ModuleMaterializer) materializeModules(modules []*typesys.Module, opts 
 }
 
 // materializeModule materializes a single module
-func (m *ModuleMaterializer) materializeModule(module *typesys.Module, rootDir string, env *Environment, opts MaterializeOptions) error {
+// This function has a conflicting name with the above, so renaming it
+func (m *ModuleMaterializer) materializeSingleModule(module *typesys.Module, rootDir string, env *Environment, opts MaterializeOptions) error {
 	// Determine module directory using enhanced path creation
 	moduleDir := CreateUniqueModulePath(env, opts.LayoutStrategy, module.Path)
 

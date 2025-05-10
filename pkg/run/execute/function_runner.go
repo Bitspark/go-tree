@@ -6,24 +6,8 @@ import (
 	"path/filepath"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/io/materialize"
 	"bitspark.dev/go-tree/pkg/io/resolve"
 )
-
-// ModuleResolver defines a minimal interface for resolving modules
-type ModuleResolver interface {
-	// ResolveModule resolves a module by path and version
-	ResolveModule(path, version string, opts interface{}) (*typesys.Module, error)
-
-	// ResolveDependencies resolves dependencies for a module
-	ResolveDependencies(module *typesys.Module, depth int) error
-}
-
-// ModuleMaterializer defines a minimal interface for materializing modules
-type ModuleMaterializer interface {
-	// MaterializeMultipleModules materializes multiple modules into an environment
-	MaterializeMultipleModules(modules []*typesys.Module, opts materialize.MaterializeOptions) (*materialize.Environment, error)
-}
 
 // FunctionRunner executes individual functions
 type FunctionRunner struct {
@@ -126,21 +110,14 @@ replace %s => %s
 		return nil, fmt.Errorf("failed to write main.go: %w", err)
 	}
 
-	// Create a temporary environment for execution
-	env := &materialize.Environment{
-		RootDir: wrapperDir, // Use wrapper dir as root
-		ModulePaths: map[string]string{
-			wrapperModulePath: wrapperDir,
-			module.Path:       moduleAbsDir,
-		},
-		IsTemporary: true,
-		EnvVars:     make(map[string]string),
-	}
+	// Create a simple environment for execution
+	env := newSimpleEnvironment(wrapperDir)
+	env.SetOwned(true)
 
 	// Apply security policy to environment
 	if r.Security != nil {
-		for k, v := range r.Security.GetEnvironmentVariables() {
-			env.EnvVars[k] = v
+		if err := r.Security.ApplyToEnvironment(env); err != nil {
+			return nil, fmt.Errorf("failed to apply security policy: %w", err)
 		}
 	}
 
@@ -154,7 +131,7 @@ replace %s => %s
 		goExec.WorkingDir = wrapperDir
 	}
 
-	// Execute in the materialized environment with proper working directory
+	// Execute in the environment with proper working directory
 	execResult, err := r.Executor.Execute(env, []string{"go", "run", "."})
 	if err != nil {
 		// If execution fails, try to read the debug file for more information
@@ -178,12 +155,21 @@ func (r *FunctionRunner) ResolveAndExecuteFunc(
 	args ...interface{}) (interface{}, error) {
 
 	// Use resolver to get the module
-	module, err := r.Resolver.ResolveModule(modulePath, "", resolve.ResolveOptions{
+	resolveOpts := resolve.ResolveOptions{
 		IncludeTests:   false,
 		IncludePrivate: true,
-	})
+	}
+
+	// The ModuleResolver interface takes an interface{} for options
+	rawModule, err := r.Resolver.ResolveModule(modulePath, "", resolveOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve module: %w", err)
+	}
+
+	// Convert the raw module to a typesys.Module
+	module, ok := rawModule.(*typesys.Module)
+	if !ok {
+		return nil, fmt.Errorf("resolver returned unexpected type: %T", rawModule)
 	}
 
 	// Resolve dependencies

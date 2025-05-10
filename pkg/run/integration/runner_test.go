@@ -2,7 +2,7 @@
 package integration
 
 import (
-	"bitspark.dev/go-tree/pkg/run/integration/testutil"
+	"bitspark.dev/go-tree/pkg/testutil"
 	"testing"
 )
 

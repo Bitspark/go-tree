@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/io/materialize"
 	"bitspark.dev/go-tree/pkg/io/resolve"
 	"bitspark.dev/go-tree/pkg/run/execute"
 	"bitspark.dev/go-tree/pkg/run/execute/specialized"
+	"bitspark.dev/go-tree/pkg/testutil/materializehelper"
 )
 
 // TestModuleResolver is a resolver specifically for tests that can handle test modules
@@ -47,7 +47,7 @@ func (r *TestModuleResolver) MapModule(importPath, fsPath string) {
 }
 
 // ResolveModule implements the execute.ModuleResolver interface
-func (r *TestModuleResolver) ResolveModule(path, version string, opts interface{}) (*typesys.Module, error) {
+func (r *TestModuleResolver) ResolveModule(path, version string, opts interface{}) (interface{}, error) {
 	// Check if this is a filesystem path first
 	if _, err := os.Stat(path); err == nil {
 		// This is a filesystem path, load it directly
@@ -101,7 +101,7 @@ func (r *TestModuleResolver) GetRegistry() interface{} {
 }
 
 // ResolveDependencies implements the execute.ModuleResolver interface
-func (r *TestModuleResolver) ResolveDependencies(module *typesys.Module, depth int) error {
+func (r *TestModuleResolver) ResolveDependencies(module interface{}, depth int) error {
 	// For test modules, we don't need to resolve dependencies
 	return nil
 }
@@ -138,7 +138,7 @@ func GetTestModulePath(moduleName string) (string, error) {
 	}
 
 	// Otherwise, try relative to the execute package root
-	path = filepath.Join("..", "testdata", moduleName)
+	path = filepath.Join("..", "..", "testdata", moduleName)
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return "", err
@@ -154,13 +154,7 @@ func CreateRunner() *execute.FunctionRunner {
 	// Pre-register the common test modules
 	registerTestModules(resolver)
 
-	materializer := materialize.NewModuleMaterializer()
-
-	// Set up materialization options to use the registry
-	options := materialize.DefaultMaterializeOptions()
-	options.UseRegistryForReplacements = true
-	options.Registry = resolver.registry
-	options.DownloadMissing = false
+	materializer := materializehelper.GetDefaultMaterializer()
 
 	return execute.NewFunctionRunner(resolver, materializer)
 }

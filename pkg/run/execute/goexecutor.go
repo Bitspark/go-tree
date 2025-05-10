@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/io/materialize"
 )
 
 // GoExecutor executes Go commands
@@ -55,7 +54,7 @@ func (e *GoExecutor) WithTimeout(seconds int) *GoExecutor {
 }
 
 // Execute runs a command in the given environment
-func (e *GoExecutor) Execute(env *materialize.Environment, command []string) (*ExecutionResult, error) {
+func (e *GoExecutor) Execute(env Environment, command []string) (*ExecutionResult, error) {
 	if env == nil {
 		return nil, errors.New("environment cannot be nil")
 	}
@@ -75,7 +74,7 @@ func (e *GoExecutor) Execute(env *materialize.Environment, command []string) (*E
 	// Set working directory
 	workDir := e.WorkingDir
 	if workDir == "" {
-		workDir = env.RootDir
+		workDir = env.GetPath()
 	}
 	cmd.Dir = workDir
 
@@ -102,11 +101,6 @@ func (e *GoExecutor) Execute(env *materialize.Environment, command []string) (*E
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	// Add environment variables from the environment
-	for k, v := range env.EnvVars {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
-	}
-
 	// Capture output
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -123,8 +117,8 @@ func (e *GoExecutor) Execute(env *materialize.Environment, command []string) (*E
 	// Create result
 	result := &ExecutionResult{
 		Command:  strings.Join(command, " "),
-		StdOut:   stdout.String(),
-		StdErr:   stderr.String(),
+		Stdout:   stdout.String(),
+		Stderr:   stderr.String(),
 		ExitCode: 0,
 		Error:    nil,
 	}
@@ -142,21 +136,12 @@ func (e *GoExecutor) Execute(env *materialize.Environment, command []string) (*E
 }
 
 // ExecuteTest runs tests in a package
-func (e *GoExecutor) ExecuteTest(env *materialize.Environment, module *typesys.Module, pkgPath string,
+func (e *GoExecutor) ExecuteTest(env Environment, module *typesys.Module, pkgPath string,
 	testFlags ...string) (*TestResult, error) {
 
 	if env == nil || module == nil {
 		return nil, errors.New("environment and module cannot be nil")
 	}
-
-	// Find the package directory
-	if _, ok := env.ModulePaths[module.Path]; !ok {
-		return nil, fmt.Errorf("module %s not found in environment", module.Path)
-	}
-
-	// Note: pkgDir is currently not used in this implementation,
-	// but would be used to set the working directory for the test command
-	// in a more complete implementation.
 
 	// Prepare the command
 	args := []string{"go", "test"}
@@ -179,19 +164,19 @@ func (e *GoExecutor) ExecuteTest(env *materialize.Environment, module *typesys.M
 	}
 
 	// Populate the result
-	result.Output = execResult.StdOut + execResult.StdErr
+	result.Output = execResult.Stdout + execResult.Stderr
 
 	// Parse test output to count passes and failures
-	if strings.Contains(execResult.StdOut, "ok") || strings.Contains(execResult.StdOut, "PASS") {
+	if strings.Contains(execResult.Stdout, "ok") || strings.Contains(execResult.Stdout, "PASS") {
 		// Tests passed
-		result.Passed = countTests(execResult.StdOut)
-	} else if strings.Contains(execResult.StdOut, "FAIL") {
+		result.Passed = countTests(execResult.Stdout)
+	} else if strings.Contains(execResult.Stdout, "FAIL") {
 		// Some tests failed
-		result.Passed, result.Failed = parseTestResults(execResult.StdOut)
+		result.Passed, result.Failed = parseTestResults(execResult.Stdout)
 	}
 
 	// Parse the test names
-	result.Tests = parseTestNames(execResult.StdOut)
+	result.Tests = parseTestNames(execResult.Stdout)
 
 	// Set error if tests failed
 	if result.Failed > 0 {
@@ -202,17 +187,11 @@ func (e *GoExecutor) ExecuteTest(env *materialize.Environment, module *typesys.M
 }
 
 // ExecuteFunc executes a function in the given environment
-func (e *GoExecutor) ExecuteFunc(env *materialize.Environment, module *typesys.Module,
+func (e *GoExecutor) ExecuteFunc(env Environment, module *typesys.Module,
 	funcSymbol *typesys.Symbol, args ...interface{}) (interface{}, error) {
 
 	if env == nil || module == nil || funcSymbol == nil {
 		return nil, errors.New("environment, module, and function symbol cannot be nil")
-	}
-
-	// Find the module directory
-	moduleDir, ok := env.ModulePaths[module.Path]
-	if !ok {
-		return nil, fmt.Errorf("module %s not found in environment", module.Path)
 	}
 
 	// Create a code generator
@@ -225,7 +204,7 @@ func (e *GoExecutor) ExecuteFunc(env *materialize.Environment, module *typesys.M
 	}
 
 	// Create a temporary file for the wrapper
-	wrapperFile := filepath.Join(moduleDir, "wrapper.go")
+	wrapperFile := filepath.Join(env.GetPath(), "wrapper.go")
 	if err := os.WriteFile(wrapperFile, []byte(code), 0644); err != nil {
 		return nil, fmt.Errorf("failed to write wrapper file: %w", err)
 	}

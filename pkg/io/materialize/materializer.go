@@ -18,30 +18,3 @@ type Materializer interface {
 	// MaterializeMultipleModules materializes multiple modules together
 	MaterializeMultipleModules(modules []*typesys.Module, opts MaterializeOptions) (*Environment, error)
 }
-
-// MaterializationError represents an error during materialization
-type MaterializationError struct {
-	// Module path where the error occurred
-	ModulePath string
-
-	// Error message
-	Message string
-
-	// Original error
-	Err error
-}
-
-// Error returns a string representation of the error
-func (e *MaterializationError) Error() string {
-	msg := "materialization error"
-	if e.ModulePath != "" {
-		msg += " for module " + e.ModulePath
-	}
-	if e.Message != "" {
-		msg += ": " + e.Message
-	}
-	if e.Err != nil {
-		msg += ": " + e.Err.Error()
-	}
-	return msg
-}
