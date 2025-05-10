@@ -1,6 +1,7 @@
 package specialized
 
 import (
+	"fmt"
 	"testing"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
@@ -146,6 +147,110 @@ func TestTypedFunctionRunner(t *testing.T) {
 	}
 }
 
+// TestRetryingFunctionRunner tests the retrying function runner
+func TestRetryingFunctionRunner(t *testing.T) {
+	// Create the base function runner with mocks
+	resolver := &MockResolver{
+		Modules: map[string]*typesys.Module{},
+	}
+	materializer := &MockMaterializer{}
+	baseRunner := execute.NewFunctionRunner(resolver, materializer)
+
+	// Create a retrying function runner with a policy that matches our error message
+	retryingRunner := NewRetryingFunctionRunner(baseRunner)
+	retryingRunner.WithPolicy(&RetryPolicy{
+		MaxRetries: 2,
+		RetryableErrors: []string{
+			"simulated failure", // This pattern will match our error messages
+		},
+	})
+
+	// Create a module and function symbol for testing
+	module := createMockModule()
+	var addFunc *typesys.Symbol
+	for _, sym := range module.Packages["github.com/test/simplemath"].Symbols {
+		if sym.Name == "Add" && sym.Kind == typesys.KindFunction {
+			addFunc = sym
+			break
+		}
+	}
+
+	if addFunc == nil {
+		t.Fatal("Failed to find Add function in mock module")
+	}
+
+	// Create a failing executor that will fail twice then succeed
+	failingExecutor := &FailingExecutor{
+		FailCount: 2,
+		Result:    float64(42),
+	}
+	baseRunner.WithExecutor(failingExecutor)
+
+	// Execute the function
+	result, err := retryingRunner.ExecuteFunc(module, addFunc, 5, 3)
+
+	// Verify it eventually succeeded
+	if err != nil {
+		t.Errorf("Expected success after retries, got error: %v", err)
+	}
+	if result != float64(42) {
+		t.Errorf("Expected result 42, got: %v", result)
+	}
+
+	// Verify it made the expected number of attempts
+	if retryingRunner.LastAttempts() != 3 { // 1 initial + 2 retries
+		t.Errorf("Expected 3 attempts, got: %d", retryingRunner.LastAttempts())
+	}
+
+	// Verify with a permanent failure (more failures than max retries)
+	failingExecutor.FailCount = 5      // Will never succeed with only 2 retries
+	failingExecutor.ExecutionCount = 0 // Reset count
+
+	// This should fail even with retries
+	_, err = retryingRunner.ExecuteFunc(module, addFunc, 5, 3)
+	if err == nil {
+		t.Error("Expected failure even with retries, but got success")
+	}
+
+	// Should stop after max retries (3 attempts)
+	if retryingRunner.LastAttempts() != 3 {
+		t.Errorf("Expected 3 attempts before giving up, got: %d", retryingRunner.LastAttempts())
+	}
+
+	// Test retry with a specific error pattern
+	// Create a policy that only retries on specific error patterns
+	retryingRunner.WithPolicy(&RetryPolicy{
+		MaxRetries:      2,
+		RetryableErrors: []string{"temporary failure"},
+	})
+
+	// Reset the executor
+	failingExecutor.ExecutionCount = 0
+	failingExecutor.FailCount = 2
+	failingExecutor.FailureMessage = "temporary failure occurred"
+
+	// Should succeed because the error is retryable
+	result, err = retryingRunner.ExecuteFunc(module, addFunc, 5, 3)
+	if err != nil {
+		t.Errorf("Expected success with retryable error, got: %v", err)
+	}
+
+	// Change to non-retryable error
+	failingExecutor.ExecutionCount = 0
+	failingExecutor.FailureMessage = "permanent failure"
+
+	// Should fail immediately because error is not retryable
+	_, err = retryingRunner.ExecuteFunc(module, addFunc, 5, 3)
+	if err == nil {
+		t.Error("Expected immediate failure with non-retryable error")
+	}
+
+	// Should only attempt once
+	if retryingRunner.LastAttempts() != 1 {
+		t.Errorf("Expected 1 attempt with non-retryable error, got: %d", retryingRunner.LastAttempts())
+	}
+}
+
 // Helper types for testing
 
 // MockResolver is a mock implementation of ModuleResolver
@@ -197,6 +302,57 @@ func (e *MockExecutor) ExecuteTest(env *materialize.Environment, module *typesys
 
 func (e *MockExecutor) ExecuteFunc(env *materialize.Environment, module *typesys.Module, funcSymbol *typesys.Symbol, args ...interface{}) (interface{}, error) {
 	return float64(42), nil
+}
+
+// FailingExecutor fails a specified number of times then succeeds
+type FailingExecutor struct {
+	FailCount      int
+	ExecutionCount int
+	Result         interface{}
+	FailureMessage string
+}
+
+func (e *FailingExecutor) Execute(env *materialize.Environment, command []string) (*execute.ExecutionResult, error) {
+	e.ExecutionCount++
+	if e.ExecutionCount <= e.FailCount {
+		errMsg := fmt.Sprintf("simulated failure %d of %d", e.ExecutionCount, e.FailCount)
+		if e.FailureMessage != "" {
+			errMsg = e.FailureMessage
+		}
+		return nil, fmt.Errorf(errMsg)
+	}
+	return &execute.ExecutionResult{
+		StdOut:   "42",
+		StdErr:   "",
+		ExitCode: 0,
+	}, nil
+}
+
+func (e *FailingExecutor) ExecuteTest(env *materialize.Environment, module *typesys.Module, pkgPath string, testFlags ...string) (*execute.TestResult, error) {
+	e.ExecutionCount++
+	if e.ExecutionCount <= e.FailCount {
+		errMsg := fmt.Sprintf("simulated failure %d of %d", e.ExecutionCount, e.FailCount)
+		if e.FailureMessage != "" {
+			errMsg = e.FailureMessage
+		}
+		return nil, fmt.Errorf(errMsg)
+	}
+	return &execute.TestResult{
+		Passed: 1,
+		Failed: 0,
+	}, nil
+}
+
+func (e *FailingExecutor) ExecuteFunc(env *materialize.Environment, module *typesys.Module, funcSymbol *typesys.Symbol, args ...interface{}) (interface{}, error) {
+	e.ExecutionCount++
+	if e.ExecutionCount <= e.FailCount {
+		errMsg := fmt.Sprintf("simulated failure %d of %d", e.ExecutionCount, e.FailCount)
+		if e.FailureMessage != "" {
+			errMsg = e.FailureMessage
+		}
+		return nil, fmt.Errorf(errMsg)
+	}
+	return e.Result, nil
 }
 
 // CountingExecutor counts how many times execute is called

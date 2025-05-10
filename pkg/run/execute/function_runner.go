@@ -2,6 +2,7 @@ package execute
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
@@ -86,8 +87,8 @@ func (r *FunctionRunner) ExecuteFunc(
 		return nil, fmt.Errorf("failed to generate wrapper code: %w", err)
 	}
 
-	// Create a temporary module
-	tmpModule, err := createTempModule(module.Path, code)
+	// Create a temporary module with a proper go.mod that includes the target module
+	tmpModule, err := createTempModule(module.Path, code, funcSymbol.Package.ImportPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temporary module: %w", err)
 	}
@@ -97,7 +98,7 @@ func (r *FunctionRunner) ExecuteFunc(
 		DependencyPolicy: materialize.DirectDependenciesOnly,
 		ReplaceStrategy:  materialize.RelativeReplace,
 		LayoutStrategy:   materialize.FlatLayout,
-		RunGoModTidy:     true,
+		RunGoModTidy:     false, // Disable to prevent it from trying to download modules
 		EnvironmentVars:  make(map[string]string),
 	}
 
@@ -116,8 +117,35 @@ func (r *FunctionRunner) ExecuteFunc(
 	}
 	defer env.Cleanup()
 
+	// Get directory paths from the environment
+	wrapperDir := env.ModulePaths[tmpModule.Path]
+	targetModuleDir := env.ModulePaths[module.Path]
+
+	// Create an explicit go.mod with the replacement directive for the target module
+	goModContent := fmt.Sprintf(`module %s
+
+go 1.16
+
+require %s v0.0.0
+
+replace %s => %s
+`,
+		tmpModule.Path,
+		funcSymbol.Package.ImportPath,
+		funcSymbol.Package.ImportPath,
+		targetModuleDir)
+
+	// Write the go.mod and main.go files directly to ensure correct content
+	if err := os.WriteFile(filepath.Join(wrapperDir, "go.mod"), []byte(goModContent), 0644); err != nil {
+		return nil, fmt.Errorf("failed to write go.mod: %w", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(wrapperDir, "main.go"), []byte(code), 0644); err != nil {
+		return nil, fmt.Errorf("failed to write main.go: %w", err)
+	}
+
 	// Execute in the materialized environment
-	mainFile := filepath.Join(env.ModulePaths[tmpModule.Path], "main.go")
+	mainFile := filepath.Join(wrapperDir, "main.go")
 	execResult, err := r.Executor.Execute(env, []string{"go", "run", mainFile})
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute function: %w", err)
@@ -177,8 +205,9 @@ func (r *FunctionRunner) ResolveAndExecuteFunc(
 
 // Helper functions
 
-// createTempModule creates a temporary module with a single main.go file
-func createTempModule(basePath string, code string) (*typesys.Module, error) {
+// createTempModule creates a temporary module with a simple main.go and go.mod file
+// that explicitly requires the target module at a placeholder version (v0.0.0)
+func createTempModule(basePath string, mainCode string, dependencies ...string) (*typesys.Module, error) {
 	// Create a module with a name that won't conflict
 	wrapperModulePath := basePath + "_wrapper"
 
@@ -190,17 +219,41 @@ func createTempModule(basePath string, code string) (*typesys.Module, error) {
 	pkg := typesys.NewPackage(module, "main", wrapperModulePath)
 	module.Packages[wrapperModulePath] = pkg
 
-	// Create a file for the wrapper
-	// Note: We're assuming File has fields Path and Package.
-	// The actual file content will be written to disk by the materializer.
-	file := &typesys.File{
-		Path:    "main.go",
-		Package: pkg,
-	}
+	// Create main.go file
+	mainFile := typesys.NewFile("main.go", pkg)
+	pkg.Files["main.go"] = mainFile
 
-	// Store the code separately as we'll need it later
-	// The materializer will need to write this content to the filesystem
-	pkg.Files["main.go"] = file
+	// Create go.mod file
+	goModFile := typesys.NewFile("go.mod", pkg)
+	pkg.Files["go.mod"] = goModFile
 
 	return module, nil
+}
+
+// writeWrapperFiles writes the wrapper files to disk
+func writeWrapperFiles(dir string, mainCode string, modulePath string, dependencyPath string, replacementPath string) error {
+	// Create go.mod content
+	goModContent := fmt.Sprintf("module %s\n\ngo 1.16\n\n", modulePath)
+
+	// Add requires for dependencies
+	goModContent += "require (\n"
+	goModContent += fmt.Sprintf("\t%s v0.0.0\n", dependencyPath)
+	goModContent += ")\n\n"
+
+	// Add replace directive for the dependency
+	goModContent += "replace (\n"
+	goModContent += fmt.Sprintf("\t%s => %s\n", dependencyPath, replacementPath)
+	goModContent += ")\n"
+
+	// Write main.go
+	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(mainCode), 0644); err != nil {
+		return fmt.Errorf("failed to write main.go: %w", err)
+	}
+
+	// Write go.mod
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goModContent), 0644); err != nil {
+		return fmt.Errorf("failed to write go.mod: %w", err)
+	}
+
+	return nil
 }
