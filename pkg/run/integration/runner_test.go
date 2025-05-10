@@ -2,9 +2,8 @@
 package integration
 
 import (
+	"bitspark.dev/go-tree/pkg/run/integration/testutil"
 	"testing"
-
-	"bitspark.dev/go-tree/pkg/run/execute/integration/testutil"
 )
 
 // TestSimpleMathFunctions tests executing functions from the simplemath module

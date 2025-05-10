@@ -10,7 +10,7 @@ import (
 	"bitspark.dev/go-tree/pkg/io/loader"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/run/toolkit"
+	"bitspark.dev/go-tree/pkg/toolkit"
 )
 
 // ModuleResolver is the standard implementation of the Resolver interface

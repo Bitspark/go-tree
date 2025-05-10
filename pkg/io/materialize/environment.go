@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"bitspark.dev/go-tree/pkg/run/toolkit"
+	"bitspark.dev/go-tree/pkg/toolkit"
 )
 
 // Environment represents materialized modules and provides operations on them

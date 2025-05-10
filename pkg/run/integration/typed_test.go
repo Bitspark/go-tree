@@ -1,10 +1,10 @@
 package integration
 
 import (
+	"bitspark.dev/go-tree/pkg/run/integration/testutil"
 	"testing"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/run/execute/integration/testutil"
 )
 
 // TestTypedFunctionRunner tests the typed function runner with real functions

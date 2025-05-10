@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	toolkittesting "bitspark.dev/go-tree/pkg/run/toolkit/testing"
+	toolkittesting "bitspark.dev/go-tree/pkg/toolkit/testing"
 )
 
 // TestMockGoToolchainBasic tests basic operations of the mock toolchain

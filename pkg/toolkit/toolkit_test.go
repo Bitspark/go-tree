@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	toolkittesting "bitspark.dev/go-tree/pkg/run/toolkit/testing"
+	toolkittesting "bitspark.dev/go-tree/pkg/toolkit/testing"
 )
 
 func TestStandardGoToolchain(t *testing.T) {

@@ -1,10 +1,10 @@
 package integration
 
 import (
+	"bitspark.dev/go-tree/pkg/run/integration/testutil"
 	"testing"
 
 	"bitspark.dev/go-tree/pkg/run/execute"
-	"bitspark.dev/go-tree/pkg/run/execute/integration/testutil"
 )
 
 // TestSecurityPolicies tests security policies with real functions

@@ -1,11 +1,11 @@
 package integration
 
 import (
+	"bitspark.dev/go-tree/pkg/run/integration/testutil"
 	"testing"
 	"time"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/run/execute/integration/testutil"
 	"bitspark.dev/go-tree/pkg/run/execute/specialized"
 )
 

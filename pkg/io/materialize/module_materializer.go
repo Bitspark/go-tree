@@ -10,7 +10,7 @@ import (
 	saver2 "bitspark.dev/go-tree/pkg/io/saver"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/run/toolkit"
+	"bitspark.dev/go-tree/pkg/toolkit"
 )
 
 // ModuleMaterializer is the standard implementation of the Materializer interface
