@@ -3,6 +3,7 @@ package execute
 import (
 	"fmt"
 	"os"
+	"strconv"
 )
 
 // StandardSecurityPolicy implements basic security constraints for execution
@@ -63,9 +64,21 @@ func (p *StandardSecurityPolicy) ApplyToEnvironment(env Environment) error {
 		return fmt.Errorf("environment cannot be nil")
 	}
 
-	// We can't directly set environment variables on the interface
-	// Instead, we'll return environment variables via GetEnvironmentVariables()
-	// which will be applied by the Executor
+	if !p.AllowNetwork {
+		env.EnvVars["SANDBOX_NETWORK"] = "disabled"
+	}
+
+	if !p.AllowFileIO {
+		env.EnvVars["SANDBOX_FILEIO"] = "disabled"
+	}
+
+	if p.MemoryLimit > 0 {
+		env.EnvVars["GOMEMLIMIT"] = strconv.FormatInt(p.MemoryLimit, 10)
+	}
+
+	for k, v := range p.EnvVars {
+		env.EnvVars[k] = v
+	}
 
 	return nil
 }

@@ -10,7 +10,7 @@ import (
 	"bitspark.dev/go-tree/pkg/io/loader"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/toolkit"
+	"bitspark.dev/go-tree/pkg/env"
 )
 
 // ModuleResolver is the standard implementation of the Resolver interface
@@ -31,13 +31,13 @@ type ModuleResolver struct {
 	replacements map[string]map[string]string
 
 	// Toolchain for Go operations
-	toolchain toolkit.GoToolchain
+	toolchain env.GoToolchain
 
 	// Filesystem for module operations
-	fs toolkit.ModuleFS
+	fs env.ModuleFS
 
 	// Middleware chain for resolution
-	middlewareChain *toolkit.MiddlewareChain
+	middlewareChain *env.MiddlewareChain
 
 	// Registry for module resolution
 	registry ModuleRegistry
@@ -56,20 +56,20 @@ func NewModuleResolverWithOptions(options ResolveOptions) *ModuleResolver {
 		locationCache:   make(map[string]string),
 		inProgress:      make(map[string]bool),
 		replacements:    make(map[string]map[string]string),
-		toolchain:       toolkit.NewStandardGoToolchain(),
-		fs:              toolkit.NewStandardModuleFS(),
-		middlewareChain: toolkit.NewMiddlewareChain(),
+		toolchain:       env.NewStandardGoToolchain(),
+		fs:              env.NewStandardModuleFS(),
+		middlewareChain: env.NewMiddlewareChain(),
 	}
 }
 
 // WithToolchain sets a custom toolchain
-func (r *ModuleResolver) WithToolchain(toolchain toolkit.GoToolchain) *ModuleResolver {
+func (r *ModuleResolver) WithToolchain(toolchain env.GoToolchain) *ModuleResolver {
 	r.toolchain = toolchain
 	return r
 }
 
 // WithFS sets a custom filesystem
-func (r *ModuleResolver) WithFS(fs toolkit.ModuleFS) *ModuleResolver {
+func (r *ModuleResolver) WithFS(fs env.ModuleFS) *ModuleResolver {
 	r.fs = fs
 	return r
 }
@@ -81,7 +81,7 @@ func (r *ModuleResolver) WithRegistry(registry ModuleRegistry) *ModuleResolver {
 }
 
 // Use adds middleware to the chain
-func (r *ModuleResolver) Use(middleware ...toolkit.ResolutionMiddleware) *ModuleResolver {
+func (r *ModuleResolver) Use(middleware ...env.ResolutionMiddleware) *ModuleResolver {
 	r.middlewareChain.Add(middleware...)
 	return r
 }
@@ -190,7 +190,7 @@ func (r *ModuleResolver) ResolveModule(path, version string, opts ResolveOptions
 	// Apply any options from the middleware chain
 	if opts.UseResolutionCache && r.middlewareChain != nil {
 		// Add caching middleware if enabled
-		r.middlewareChain.Add(toolkit.NewCachingMiddleware())
+		r.middlewareChain.Add(env.NewCachingMiddleware())
 	}
 
 	// Try to find the module location

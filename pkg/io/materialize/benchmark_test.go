@@ -59,7 +59,6 @@ func BenchmarkMaterialize(b *testing.B) {
 
 	// Use simplemath module for benchmarking (small and simple)
 	moduleName := "simplemath"
-	importPath := "github.com/test/simplemath"
 
 	// Get module path
 	modulePath, err := getTestModulePath(moduleName)
@@ -70,7 +69,7 @@ func BenchmarkMaterialize(b *testing.B) {
 	// Resolve module
 	resolveOpts := resolve.DefaultResolveOptions()
 	resolveOpts.DownloadMissing = false
-	module, err := resolver.ResolveModule(importPath, "", resolveOpts)
+	module, err := resolver.ResolveModule(modulePath, "", resolveOpts)
 	if err != nil {
 		b.Fatalf("Failed to resolve module: %v", err)
 	}
@@ -132,7 +131,6 @@ func BenchmarkMaterializeComplexModule(b *testing.B) {
 
 	// Use complexreturn module for benchmarking (more complex)
 	moduleName := "complexreturn"
-	importPath := "github.com/test/complexreturn"
 
 	// Get module path
 	modulePath, err := getTestModulePath(moduleName)
@@ -143,7 +141,7 @@ func BenchmarkMaterializeComplexModule(b *testing.B) {
 	// Resolve module
 	resolveOpts := resolve.DefaultResolveOptions()
 	resolveOpts.DownloadMissing = false
-	module, err := resolver.ResolveModule(importPath, "", resolveOpts)
+	module, err := resolver.ResolveModule(modulePath, "", resolveOpts)
 	if err != nil {
 		b.Fatalf("Failed to resolve module: %v", err)
 	}

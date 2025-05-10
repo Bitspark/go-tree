@@ -1,11 +1,13 @@
-package materialize
+package integration
 
 import (
+	"bitspark.dev/go-tree/pkg/core/typesys"
+	"bitspark.dev/go-tree/pkg/env"
+	"bitspark.dev/go-tree/pkg/io/materialize"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"bitspark.dev/go-tree/pkg/core/typesys"
 	"bitspark.dev/go-tree/pkg/testutil"
 )
 
@@ -26,29 +28,28 @@ func TestMaterializeRealModules(t *testing.T) {
 			}
 
 			// Resolve the module
-			importPath := "github.com/test/" + moduleName
-			module, err := resolver.ResolveModule(importPath, "", nil)
+			module, err := resolver.ResolveModule(modulePath, "", nil)
 			if err != nil {
 				t.Fatalf("Failed to resolve module: %v", err)
 			}
 
 			// Create materializer
-			materializer := NewModuleMaterializer()
+			materializer := materialize.NewModuleMaterializer()
 
 			// Set up options for different test cases
 			layoutStrategies := []struct {
 				name     string
-				strategy LayoutStrategy
+				strategy materialize.LayoutStrategy
 			}{
-				{"flat", FlatLayout},
-				{"hierarchical", HierarchicalLayout},
-				{"gopath", GoPathLayout},
+				{"flat", materialize.FlatLayout},
+				{"hierarchical", materialize.HierarchicalLayout},
+				{"gopath", materialize.GoPathLayout},
 			}
 
 			for _, layout := range layoutStrategies {
 				t.Run(layout.name, func(t *testing.T) {
 					// Create options with this layout
-					opts := DefaultMaterializeOptions()
+					opts := materialize.DefaultMaterializeOptions()
 					opts.LayoutStrategy = layout.strategy
 					opts.Registry = resolver.GetRegistry()
 
@@ -59,7 +60,7 @@ func TestMaterializeRealModules(t *testing.T) {
 					}
 					defer env.Cleanup()
 
-					// Verify correct layout was used
+					//// Verify correct layout was used
 					verifyLayoutStrategy(t, env, module, layout.strategy)
 
 					// Verify all files were materialized
@@ -71,26 +72,26 @@ func TestMaterializeRealModules(t *testing.T) {
 }
 
 // verifyLayoutStrategy verifies that the correct layout strategy was used
-func verifyLayoutStrategy(t *testing.T, env *Environment, module *typesys.Module, strategy LayoutStrategy) {
+func verifyLayoutStrategy(t *testing.T, env *env.Environment, module *typesys.Module, strategy materialize.LayoutStrategy) {
 	modulePath, ok := env.ModulePaths[module.Path]
 	if !ok {
 		t.Fatalf("Module path %s missing from environment", module.Path)
 	}
 
 	switch strategy {
-	case FlatLayout:
+	case materialize.FlatLayout:
 		// Expect module in a flat directory structure
 		base := filepath.Base(modulePath)
 		expected := strings.ReplaceAll(module.Path, "/", "_")
 		if base != expected {
 			t.Errorf("Expected base directory %s for flat layout, got %s", expected, base)
 		}
-	case HierarchicalLayout:
+	case materialize.HierarchicalLayout:
 		// Expect module path to end with the full import path
 		if !strings.HasSuffix(filepath.ToSlash(modulePath), module.Path) {
 			t.Errorf("Expected hierarchical path to end with %s, got %s", module.Path, modulePath)
 		}
-	case GoPathLayout:
+	case materialize.GoPathLayout:
 		// Expect GOPATH-like structure with src directory
 		if !strings.Contains(filepath.ToSlash(modulePath), "src/"+module.Path) {
 			t.Errorf("Expected GOPATH layout to contain src/%s, got %s", module.Path, modulePath)
@@ -99,7 +100,7 @@ func verifyLayoutStrategy(t *testing.T, env *Environment, module *typesys.Module
 }
 
 // verifyFilesExist verifies that all expected files were materialized
-func verifyFilesExist(t *testing.T, env *Environment, module *typesys.Module) {
+func verifyFilesExist(t *testing.T, env *env.Environment, module *typesys.Module) {
 	modulePath, ok := env.ModulePaths[module.Path]
 	if !ok {
 		t.Fatalf("Module path %s missing from environment", module.Path)

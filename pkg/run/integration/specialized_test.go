@@ -110,15 +110,9 @@ func TestBatchFunctionRunner(t *testing.T) {
 
 	// Resolve the module to get symbols
 	baseRunner := testutil.CreateRunner()
-	rawModule, err := baseRunner.Resolver.ResolveModule(modulePath, "", nil)
+	module, err := baseRunner.Resolver.ResolveModule(modulePath, "", nil)
 	if err != nil {
 		t.Fatalf("Failed to resolve module: %v", err)
-	}
-
-	// Type assertion to convert from interface{} to *typesys.Module
-	module, ok := rawModule.(*typesys.Module)
-	if !ok {
-		t.Fatalf("Failed to convert module: got %T, expected *typesys.Module", rawModule)
 	}
 
 	// Get the package

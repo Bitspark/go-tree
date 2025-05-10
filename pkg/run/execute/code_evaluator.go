@@ -1,6 +1,7 @@
 package execute
 
 import (
+	"bitspark.dev/go-tree/pkg/env"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -50,9 +51,7 @@ func (e *CodeEvaluator) EvaluateGoCode(code string) (*ExecutionResult, error) {
 	}
 
 	// Create a simple environment
-	// We're not using a materialized module here, so we create a simple environment
-	// that just wraps the temporary directory
-	env := newSimpleEnvironment(tmpDir)
+	env := env.NewEnvironment(tmpDir, true)
 
 	// Apply security policy
 	if e.Security != nil {
@@ -78,7 +77,7 @@ func (e *CodeEvaluator) EvaluateGoPackage(packageDir string, mainFile string) (*
 	}
 
 	// Create a simple environment
-	env := newSimpleEnvironment(packageDir)
+	env := env.NewEnvironment(packageDir, true)
 
 	// Apply security policy
 	if e.Security != nil {
@@ -108,7 +107,7 @@ func (e *CodeEvaluator) EvaluateGoScript(scriptPath string, args ...string) (*Ex
 	scriptDir := filepath.Dir(scriptPath)
 
 	// Create a simple environment
-	env := newSimpleEnvironment(scriptDir)
+	env := env.NewEnvironment(scriptDir, true)
 
 	// Apply security policy
 	if e.Security != nil {
@@ -127,36 +126,4 @@ func (e *CodeEvaluator) EvaluateGoScript(scriptPath string, args ...string) (*Ex
 	}
 
 	return result, nil
-}
-
-// SimpleEnvironment is a basic implementation of the Environment interface
-type SimpleEnvironment struct {
-	path  string
-	owned bool
-}
-
-// newSimpleEnvironment creates a new simple environment
-func newSimpleEnvironment(path string) *SimpleEnvironment {
-	return &SimpleEnvironment{
-		path:  path,
-		owned: false,
-	}
-}
-
-// GetPath returns the path of the environment
-func (e *SimpleEnvironment) GetPath() string {
-	return e.path
-}
-
-// Cleanup cleans up the environment
-func (e *SimpleEnvironment) Cleanup() error {
-	if e.owned {
-		return os.RemoveAll(e.path)
-	}
-	return nil
-}
-
-// SetOwned sets whether the environment owns its path
-func (e *SimpleEnvironment) SetOwned(owned bool) {
-	e.owned = owned
 }

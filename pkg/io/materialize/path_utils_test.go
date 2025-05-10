@@ -1,6 +1,7 @@
 package materialize
 
 import (
+	"bitspark.dev/go-tree/pkg/env"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -87,7 +88,7 @@ func TestIsLocalPath(t *testing.T) {
 
 func TestCreateUniqueModulePath(t *testing.T) {
 	// Create a test environment
-	env := &Environment{
+	env := &env.Environment{
 		RootDir:     filepath.FromSlash("/test/root"),
 		ModulePaths: make(map[string]string),
 	}

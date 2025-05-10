@@ -1,6 +1,7 @@
 package execute
 
 import (
+	"bitspark.dev/go-tree/pkg/env"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -111,7 +112,7 @@ replace %s => %s
 	}
 
 	// Create a simple environment for execution
-	env := newSimpleEnvironment(wrapperDir)
+	env := env.NewEnvironment(wrapperDir, true)
 	env.SetOwned(true)
 
 	// Apply security policy to environment
@@ -161,15 +162,9 @@ func (r *FunctionRunner) ResolveAndExecuteFunc(
 	}
 
 	// The ModuleResolver interface takes an interface{} for options
-	rawModule, err := r.Resolver.ResolveModule(modulePath, "", resolveOpts)
+	module, err := r.Resolver.ResolveModule(modulePath, "", resolveOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve module: %w", err)
-	}
-
-	// Convert the raw module to a typesys.Module
-	module, ok := rawModule.(*typesys.Module)
-	if !ok {
-		return nil, fmt.Errorf("resolver returned unexpected type: %T", rawModule)
 	}
 
 	// Resolve dependencies

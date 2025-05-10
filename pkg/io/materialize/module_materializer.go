@@ -10,7 +10,7 @@ import (
 	saver2 "bitspark.dev/go-tree/pkg/io/saver"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/toolkit"
+	"bitspark.dev/go-tree/pkg/env"
 )
 
 // ModuleMaterializer is the standard implementation of the Materializer interface
@@ -19,10 +19,10 @@ type ModuleMaterializer struct {
 	Saver   saver2.ModuleSaver
 
 	// Toolchain for Go operations
-	toolchain toolkit.GoToolchain
+	toolchain env.GoToolchain
 
 	// Filesystem for module operations
-	fs toolkit.ModuleFS
+	fs env.ModuleFS
 
 	// Registry for module resolution
 	registry interface{} // Will be properly typed when we import the resolve package
@@ -38,20 +38,20 @@ func NewModuleMaterializerWithOptions(options MaterializeOptions) *ModuleMateria
 	return &ModuleMaterializer{
 		Options:   options,
 		Saver:     saver2.NewGoModuleSaver(),
-		toolchain: toolkit.NewStandardGoToolchain(),
-		fs:        toolkit.NewStandardModuleFS(),
+		toolchain: env.NewStandardGoToolchain(),
+		fs:        env.NewStandardModuleFS(),
 		registry:  options.Registry, // Use registry from options if provided
 	}
 }
 
 // WithToolchain sets a custom toolchain
-func (m *ModuleMaterializer) WithToolchain(toolchain toolkit.GoToolchain) *ModuleMaterializer {
+func (m *ModuleMaterializer) WithToolchain(toolchain env.GoToolchain) *ModuleMaterializer {
 	m.toolchain = toolchain
 	return m
 }
 
 // WithFS sets a custom filesystem
-func (m *ModuleMaterializer) WithFS(fs toolkit.ModuleFS) *ModuleMaterializer {
+func (m *ModuleMaterializer) WithFS(fs env.ModuleFS) *ModuleMaterializer {
 	m.fs = fs
 	return m
 }
@@ -71,28 +71,31 @@ func (m *ModuleMaterializer) WithOptions(options MaterializeOptions) *ModuleMate
 	return m
 }
 
+// Materialize implements the Materializer interface
+func (m *ModuleMaterializer) Materialize(module *typesys.Module, opts MaterializeOptions) (*env.Environment, error) {
+	env, err := m.materializeModule(module, opts)
+	if err != nil {
+		return nil, err
+	}
+	return env, nil
+}
+
 // MaterializeModule writes a module to disk with dependencies
 // This is a private implementation method renamed to avoid conflicts with the interface method
-func (m *ModuleMaterializer) materializeModule(module *typesys.Module, opts MaterializeOptions) (*Environment, error) {
+func (m *ModuleMaterializer) materializeModule(module *typesys.Module, opts MaterializeOptions) (*env.Environment, error) {
 	return m.materializeModules([]*typesys.Module{module}, opts)
 }
 
 // MaterializeForExecution prepares a module for running
-func (m *ModuleMaterializer) MaterializeForExecution(module *typesys.Module, opts MaterializeOptions) (*Environment, error) {
-	interfaceEnv, err := m.Materialize(module, opts)
+func (m *ModuleMaterializer) MaterializeForExecution(module *typesys.Module, opts MaterializeOptions) (*env.Environment, error) {
+	envImpl, err := m.materializeModule(module, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	// Type assertion to access concrete Environment methods
-	env, ok := interfaceEnv.(*Environment)
-	if !ok {
-		return nil, fmt.Errorf("expected *Environment, got %T", interfaceEnv)
-	}
-
 	// Run additional setup for execution
 	if opts.RunGoModTidy {
-		modulePath, ok := env.ModulePaths[module.Path]
+		modulePath, ok := envImpl.ModulePaths[module.Path]
 		if ok {
 			// Create context for toolchain operations
 			ctx := context.Background()
@@ -103,12 +106,12 @@ func (m *ModuleMaterializer) MaterializeForExecution(module *typesys.Module, opt
 			}
 
 			// Set working directory for the command
-			customToolchain := *m.toolchain.(*toolkit.StandardGoToolchain)
+			customToolchain := *m.toolchain.(*env.StandardGoToolchain)
 			customToolchain.WorkDir = modulePath
 
 			output, err := customToolchain.RunCommand(ctx, "mod", "tidy")
 			if err != nil {
-				return env, &MaterializationError{
+				return envImpl, &MaterializationError{
 					ModulePath: module.Path,
 					Message:    "failed to run go mod tidy",
 					Err:        fmt.Errorf("%w: %s", err, string(output)),
@@ -117,16 +120,16 @@ func (m *ModuleMaterializer) MaterializeForExecution(module *typesys.Module, opt
 		}
 	}
 
-	return env, nil
+	return envImpl, nil
 }
 
 // MaterializeMultipleModules materializes multiple modules together
-func (m *ModuleMaterializer) MaterializeMultipleModules(modules []*typesys.Module, opts MaterializeOptions) (*Environment, error) {
+func (m *ModuleMaterializer) MaterializeMultipleModules(modules []*typesys.Module, opts MaterializeOptions) (*env.Environment, error) {
 	return m.materializeModules(modules, opts)
 }
 
 // materializeModules is the core materialization implementation
-func (m *ModuleMaterializer) materializeModules(modules []*typesys.Module, opts MaterializeOptions) (*Environment, error) {
+func (m *ModuleMaterializer) materializeModules(modules []*typesys.Module, opts MaterializeOptions) (*env.Environment, error) {
 	// Use provided options or fall back to defaults
 	if opts.TargetDir == "" && len(opts.EnvironmentVars) == 0 && !opts.RunGoModTidy &&
 		!opts.IncludeTests && !opts.Verbose && !opts.Preserve {
@@ -164,7 +167,7 @@ func (m *ModuleMaterializer) materializeModules(modules []*typesys.Module, opts 
 	}
 
 	// Create environment
-	env := &Environment{
+	env := &env.Environment{
 		RootDir:     rootDir,
 		ModulePaths: make(map[string]string),
 		IsTemporary: isTemporary && !opts.Preserve,
@@ -189,8 +192,8 @@ func (m *ModuleMaterializer) materializeModules(modules []*typesys.Module, opts 
 }
 
 // materializeModule materializes a single module
-// This function has a conflicting name with the above, so renaming it
-func (m *ModuleMaterializer) materializeSingleModule(module *typesys.Module, rootDir string, env *Environment, opts MaterializeOptions) error {
+// This is a private implementation method renamed to avoid conflicts with the interface method
+func (m *ModuleMaterializer) materializeSingleModule(module *typesys.Module, rootDir string, env *env.Environment, opts MaterializeOptions) error {
 	// Determine module directory using enhanced path creation
 	moduleDir := CreateUniqueModulePath(env, opts.LayoutStrategy, module.Path)
 
@@ -240,7 +243,7 @@ func (m *ModuleMaterializer) materializeSingleModule(module *typesys.Module, roo
 }
 
 // materializeExplicitDependencies materializes dependencies based on explicit module.Dependencies
-func (m *ModuleMaterializer) materializeExplicitDependencies(module *typesys.Module, rootDir string, env *Environment, opts MaterializeOptions) error {
+func (m *ModuleMaterializer) materializeExplicitDependencies(module *typesys.Module, rootDir string, env *env.Environment, opts MaterializeOptions) error {
 	// Process each dependency
 	for _, dep := range module.Dependencies {
 		// Skip if already materialized
@@ -353,7 +356,7 @@ func (m *ModuleMaterializer) materializeExplicitDependencies(module *typesys.Mod
 }
 
 // materializeDependencies materializes dependencies of a module
-func (m *ModuleMaterializer) materializeDependencies(module *typesys.Module, rootDir string, env *Environment, opts MaterializeOptions) error {
+func (m *ModuleMaterializer) materializeDependencies(module *typesys.Module, rootDir string, env *env.Environment, opts MaterializeOptions) error {
 	// Parse the go.mod file to get dependencies
 	goModPath := filepath.Join(module.Dir, "go.mod")
 	content, err := m.fs.ReadFile(goModPath)
@@ -473,7 +476,7 @@ func (m *ModuleMaterializer) materializeDependencies(module *typesys.Module, roo
 }
 
 // materializeLocalModule copies a module from a local directory to the materialization location
-func (m *ModuleMaterializer) materializeLocalModule(srcDir, modulePath, rootDir string, env *Environment, opts MaterializeOptions) (string, error) {
+func (m *ModuleMaterializer) materializeLocalModule(srcDir, modulePath, rootDir string, env *env.Environment, opts MaterializeOptions) (string, error) {
 	// Determine module directory based on layout strategy
 	var moduleDir string
 
@@ -517,7 +520,7 @@ func (m *ModuleMaterializer) materializeLocalModule(srcDir, modulePath, rootDir 
 }
 
 // generateGoMod generates or updates the go.mod file for a materialized module
-func (m *ModuleMaterializer) generateGoMod(module *typesys.Module, moduleDir string, env *Environment, opts MaterializeOptions) error {
+func (m *ModuleMaterializer) generateGoMod(module *typesys.Module, moduleDir string, env *env.Environment, opts MaterializeOptions) error {
 	// Read the original go.mod
 	originalGoModPath := filepath.Join(module.Dir, "go.mod")
 	content, err := m.fs.ReadFile(originalGoModPath)

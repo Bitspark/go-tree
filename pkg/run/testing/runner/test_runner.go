@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bitspark.dev/go-tree/pkg/env"
 	"bitspark.dev/go-tree/pkg/run/common"
 	"fmt"
 	"os"
@@ -10,7 +11,6 @@ import (
 	"strings"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/io/materialize"
 	"bitspark.dev/go-tree/pkg/io/resolve"
 	"bitspark.dev/go-tree/pkg/run/execute"
 )
@@ -45,11 +45,11 @@ func NewUnifiedTestRunner(executor execute.Executor, generator execute.CodeGener
 
 // ExecuteTest runs tests for a given module and package path
 // This replaces the execute.Executor.ExecuteTest method
-func (r *UnifiedTestRunner) ExecuteTest(env *materialize.Environment, module *typesys.Module,
+func (r *UnifiedTestRunner) ExecuteTest(e *env.Environment, module *typesys.Module,
 	pkgPath string, testFlags ...string) (*common.TestResult, error) {
 	// Create environment if none provided
-	if env == nil {
-		env = materialize.NewEnvironment(filepath.Join(os.TempDir(), module.Path), false)
+	if e == nil {
+		e = env.NewEnvironment(filepath.Join(os.TempDir(), module.Path), false)
 	}
 
 	// Prepare test command
@@ -59,7 +59,7 @@ func (r *UnifiedTestRunner) ExecuteTest(env *materialize.Environment, module *ty
 	}
 
 	// Use the core executor to run the test command
-	execResult, err := r.Executor.Execute(env, cmd)
+	execResult, err := r.Executor.Execute(e, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute tests: %w", err)
 	}
@@ -141,7 +141,7 @@ func (r *UnifiedTestRunner) ExecuteModuleTests(
 	}
 
 	// Create a materialized environment
-	env := materialize.NewEnvironment(filepath.Join(os.TempDir(), module.Path), false)
+	env := env.NewEnvironment(filepath.Join(os.TempDir(), module.Path), false)
 
 	// Execute tests in the environment
 	return r.ExecuteTest(env, module, "", testFlags...)
@@ -163,7 +163,7 @@ func (r *UnifiedTestRunner) ExecutePackageTests(
 	}
 
 	// Create a materialized environment
-	env := materialize.NewEnvironment(filepath.Join(os.TempDir(), module.Path), false)
+	env := env.NewEnvironment(filepath.Join(os.TempDir(), module.Path), false)
 
 	// Execute tests in the specific package
 	return r.ExecuteTest(env, module, pkgPath, testFlags...)
@@ -199,7 +199,7 @@ func (r *UnifiedTestRunner) ExecuteSpecificTest(
 	}
 
 	// Create a materialized environment
-	env := materialize.NewEnvironment(filepath.Join(os.TempDir(), module.Path), false)
+	env := env.NewEnvironment(filepath.Join(os.TempDir(), module.Path), false)
 
 	// Prepare test flags to run only the specific test
 	testFlags := []string{"-v", "-run", "^" + testName + "$"}

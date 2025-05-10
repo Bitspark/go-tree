@@ -19,7 +19,7 @@ type MockInvocation struct {
 	Args    []string
 }
 
-// MockGoToolchain implements toolkit.GoToolchain for testing
+// MockGoToolchain implements env.GoToolchain for testing
 type MockGoToolchain struct {
 	// Mock responses for different commands
 	CommandResults map[string]MockCommandResult

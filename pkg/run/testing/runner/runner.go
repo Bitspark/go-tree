@@ -2,13 +2,13 @@
 package runner
 
 import (
+	"bitspark.dev/go-tree/pkg/env"
 	"bitspark.dev/go-tree/pkg/run/common"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/io/materialize"
 	"bitspark.dev/go-tree/pkg/run/execute"
 )
 
@@ -58,7 +58,7 @@ func (r *Runner) RunTests(mod *typesys.Module, pkgPath string, opts *common.RunO
 	}
 
 	// Create a simple environment for test execution
-	env := &materialize.Environment{}
+	env := &env.Environment{}
 
 	// Execute tests using the unified test runner instead of directly calling executor
 	return r.unifiedRunner.ExecuteTest(env, mod, pkgPath, testFlags...)
@@ -76,7 +76,7 @@ func (r *Runner) AnalyzeCoverage(mod *typesys.Module, pkgPath string) (*common.C
 	}
 
 	// Create a simple environment for test execution
-	env := &materialize.Environment{}
+	env := &env.Environment{}
 
 	// Run tests with coverage
 	testFlags := []string{"-cover", "-coverprofile=coverage.out"}

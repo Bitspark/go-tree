@@ -1,5 +1,5 @@
 // Package toolkit provides abstractions for external dependencies like the Go toolchain and filesystem.
-package toolkit
+package env
 
 import (
 	"context"

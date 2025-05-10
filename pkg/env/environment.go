@@ -1,17 +1,11 @@
-package materialize
+package env
 
 import (
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"bitspark.dev/go-tree/pkg/run/execute/materializeinterface"
-	"bitspark.dev/go-tree/pkg/toolkit"
 )
-
-// Verify that Environment implements the interface
-var _ materializeinterface.Environment = (*Environment)(nil)
 
 // Environment represents materialized modules and provides operations on them
 type Environment struct {
@@ -28,10 +22,10 @@ type Environment struct {
 	EnvVars map[string]string
 
 	// Toolchain for Go operations (may be nil if not set)
-	toolchain toolkit.GoToolchain
+	toolchain GoToolchain
 
 	// Filesystem for operations (may be nil if not set)
-	fs toolkit.ModuleFS
+	fs ModuleFS
 }
 
 // NewEnvironment creates a new environment
@@ -41,19 +35,19 @@ func NewEnvironment(rootDir string, isTemporary bool) *Environment {
 		ModulePaths: make(map[string]string),
 		IsTemporary: isTemporary,
 		EnvVars:     make(map[string]string),
-		toolchain:   toolkit.NewStandardGoToolchain(),
-		fs:          toolkit.NewStandardModuleFS(),
+		toolchain:   NewStandardGoToolchain(),
+		fs:          NewStandardModuleFS(),
 	}
 }
 
 // WithToolchain sets a custom toolchain
-func (e *Environment) WithToolchain(toolchain toolkit.GoToolchain) *Environment {
+func (e *Environment) WithToolchain(toolchain GoToolchain) *Environment {
 	e.toolchain = toolchain
 	return e
 }
 
 // WithFS sets a custom filesystem
-func (e *Environment) WithFS(fs toolkit.ModuleFS) *Environment {
+func (e *Environment) WithFS(fs ModuleFS) *Environment {
 	e.fs = fs
 	return e
 }
@@ -84,11 +78,11 @@ func (e *Environment) Execute(command []string, moduleDir string) ([]byte, error
 
 	// Check if we have a toolchain
 	if e.toolchain == nil {
-		e.toolchain = toolkit.NewStandardGoToolchain()
+		e.toolchain = NewStandardGoToolchain()
 	}
 
 	// Set up the toolchain
-	customToolchain := *e.toolchain.(*toolkit.StandardGoToolchain)
+	customToolchain := *e.toolchain.(*StandardGoToolchain)
 	customToolchain.WorkDir = workDir
 
 	// Add environment variables

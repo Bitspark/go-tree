@@ -3,13 +3,13 @@
 package testing
 
 import (
+	"bitspark.dev/go-tree/pkg/env"
 	"bitspark.dev/go-tree/pkg/run/common"
 	"fmt"
 	"regexp"
 	"strconv"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/io/materialize"
 	"bitspark.dev/go-tree/pkg/run/execute"
 )
 
@@ -41,11 +41,11 @@ type TestRunner interface {
 
 // TestExecutor abstracts test execution to avoid import cycles
 // The real implementation will be set by the runner package
-var testExecutor func(env *materialize.Environment, module *typesys.Module,
+var testExecutor func(env *env.Environment, module *typesys.Module,
 	pkgPath string, testFlags ...string) (*common.TestResult, error)
 
 // RegisterTestExecutor sets the implementation for test execution
-func RegisterTestExecutor(executor func(env *materialize.Environment, module *typesys.Module,
+func RegisterTestExecutor(executor func(env *env.Environment, module *typesys.Module,
 	pkgPath string, testFlags ...string) (*common.TestResult, error)) {
 	testExecutor = executor
 }
@@ -128,7 +128,7 @@ func ExecuteTests(mod *typesys.Module, sym *typesys.Symbol, verbose bool) (*comm
 	// For now we just verify we can generate tests
 
 	// Create a simple environment for test execution
-	env := &materialize.Environment{}
+	env := &env.Environment{}
 
 	// Prepare test flags
 	testFlags := []string{}

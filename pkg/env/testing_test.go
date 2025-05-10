@@ -1,4 +1,4 @@
-package toolkit
+package env
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	toolkittesting "bitspark.dev/go-tree/pkg/toolkit/testing"
+	toolkittesting "bitspark.dev/go-tree/pkg/env/testing"
 )
 
 // TestMockGoToolchainBasic tests basic operations of the mock toolchain

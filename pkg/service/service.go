@@ -2,6 +2,7 @@
 package service
 
 import (
+	"bitspark.dev/go-tree/pkg/env"
 	"fmt"
 	"go/types"
 
@@ -302,7 +303,7 @@ func (s *Service) loadDependencies() error {
 }
 
 // CreateEnvironment creates an execution environment for modules
-func (s *Service) CreateEnvironment(modules []*typesys.Module, opts *Config) (*materialize2.Environment, error) {
+func (s *Service) CreateEnvironment(modules []*typesys.Module, opts *Config) (*env.Environment, error) {
 	// Set up materialization options
 	materializeOpts := materialize2.MaterializeOptions{
 		DependencyPolicy: materialize2.DirectDependenciesOnly,

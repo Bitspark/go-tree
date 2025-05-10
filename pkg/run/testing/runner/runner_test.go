@@ -1,12 +1,12 @@
 package runner
 
 import (
+	"bitspark.dev/go-tree/pkg/env"
 	"bitspark.dev/go-tree/pkg/run/common"
 	"errors"
 	"testing"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/io/materialize"
 	"bitspark.dev/go-tree/pkg/run/execute"
 )
 
@@ -23,7 +23,7 @@ type MockExecutor struct {
 	LastCommand []string
 }
 
-func (m *MockExecutor) Execute(env *materialize.Environment, command []string) (*execute.ExecutionResult, error) {
+func (m *MockExecutor) Execute(env *env.Environment, command []string) (*execute.ExecutionResult, error) {
 	m.ExecuteCalled = true
 	m.Args = command
 	m.LastCommand = command
@@ -54,7 +54,7 @@ func (m *MockExecutor) Execute(env *materialize.Environment, command []string) (
 	return m.ExecuteResult, m.ExecuteError
 }
 
-func (m *MockExecutor) ExecuteFunc(env *materialize.Environment, module *typesys.Module, funcSymbol *typesys.Symbol, args ...interface{}) (interface{}, error) {
+func (m *MockExecutor) ExecuteFunc(env *env.Environment, module *typesys.Module, funcSymbol *typesys.Symbol, args ...interface{}) (interface{}, error) {
 	m.ExecuteFuncCalled = true
 	return m.ExecuteFuncResult, m.ExecuteFuncError
 }

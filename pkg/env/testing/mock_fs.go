@@ -34,7 +34,7 @@ func (fi *MockFileInfo) IsDir() bool { return fi.isDir }
 // Sys returns the underlying data source (always nil for mocks)
 func (fi *MockFileInfo) Sys() interface{} { return nil }
 
-// MockModuleFS implements toolkit.ModuleFS for testing
+// MockModuleFS implements env.ModuleFS for testing
 type MockModuleFS struct {
 	// Mock file contents
 	Files map[string][]byte

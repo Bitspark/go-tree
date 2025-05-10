@@ -1,13 +1,13 @@
 package service
 
 import (
+	"bitspark.dev/go-tree/pkg/env"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/io/materialize"
 )
 
 func safeRemoveAll(path string) {
@@ -19,7 +19,7 @@ func safeRemoveAll(path string) {
 }
 
 // Helper for safely cleaning up environments
-func safeCleanup(env *materialize.Environment) {
+func safeCleanup(env *env.Environment) {
 	if env != nil {
 		if err := env.Cleanup(); err != nil {
 			// Ignore errors during cleanup in tests

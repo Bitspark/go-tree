@@ -1,6 +1,7 @@
 package materialize
 
 import (
+	"bitspark.dev/go-tree/pkg/env"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -40,7 +41,7 @@ func IsLocalPath(path string) bool {
 }
 
 // CreateUniqueModulePath generates a unique path for a module in a materialization environment
-func CreateUniqueModulePath(env *Environment, layoutStrategy LayoutStrategy, modulePath string) string {
+func CreateUniqueModulePath(env *env.Environment, layoutStrategy LayoutStrategy, modulePath string) string {
 	var moduleDir string
 
 	switch layoutStrategy {

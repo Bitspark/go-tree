@@ -2,7 +2,7 @@ package runner
 
 import (
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/io/materialize"
+	"bitspark.dev/go-tree/pkg/env"
 	"bitspark.dev/go-tree/pkg/run/common"
 	"bitspark.dev/go-tree/pkg/run/execute"
 	"bitspark.dev/go-tree/pkg/run/testing"
@@ -15,7 +15,7 @@ func init() {
 
 	// Register our unified test executor to avoid import cycles
 	unifiedRunner := NewUnifiedTestRunner(execute.NewGoExecutor(), nil, nil)
-	testing.RegisterTestExecutor(func(env *materialize.Environment, module *typesys.Module,
+	testing.RegisterTestExecutor(func(env *env.Environment, module *typesys.Module,
 		pkgPath string, testFlags ...string) (*common.TestResult, error) {
 		return unifiedRunner.ExecuteTest(env, module, pkgPath, testFlags...)
 	})

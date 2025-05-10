@@ -1,9 +1,8 @@
 package execute
 
 import (
+	"bitspark.dev/go-tree/pkg/env"
 	"testing"
-
-	"bitspark.dev/go-tree/pkg/io/materialize"
 )
 
 func TestStandardSecurityPolicy_ApplyToEnvironment(t *testing.T) {
@@ -11,14 +10,14 @@ func TestStandardSecurityPolicy_ApplyToEnvironment(t *testing.T) {
 	testCases := []struct {
 		name            string
 		configurePolicy func(*StandardSecurityPolicy)
-		checkEnv        func(*testing.T, *materialize.Environment)
+		checkEnv        func(*testing.T, *env.Environment)
 	}{
 		{
 			name: "default policy",
 			configurePolicy: func(p *StandardSecurityPolicy) {
 				// Use default settings
 			},
-			checkEnv: func(t *testing.T, env *materialize.Environment) {
+			checkEnv: func(t *testing.T, env *env.Environment) {
 				if val := env.EnvVars["SANDBOX_NETWORK"]; val != "disabled" {
 					t.Errorf("Expected SANDBOX_NETWORK=disabled, got %s", val)
 				}
@@ -35,7 +34,7 @@ func TestStandardSecurityPolicy_ApplyToEnvironment(t *testing.T) {
 			configurePolicy: func(p *StandardSecurityPolicy) {
 				p.WithAllowNetwork(true)
 			},
-			checkEnv: func(t *testing.T, env *materialize.Environment) {
+			checkEnv: func(t *testing.T, env *env.Environment) {
 				if val, exists := env.EnvVars["SANDBOX_NETWORK"]; exists {
 					t.Errorf("Expected SANDBOX_NETWORK to not be set, got %s", val)
 				}
@@ -49,7 +48,7 @@ func TestStandardSecurityPolicy_ApplyToEnvironment(t *testing.T) {
 			configurePolicy: func(p *StandardSecurityPolicy) {
 				p.WithAllowFileIO(true)
 			},
-			checkEnv: func(t *testing.T, env *materialize.Environment) {
+			checkEnv: func(t *testing.T, env *env.Environment) {
 				if val := env.EnvVars["SANDBOX_NETWORK"]; val != "disabled" {
 					t.Errorf("Expected SANDBOX_NETWORK=disabled, got %s", val)
 				}
@@ -63,7 +62,7 @@ func TestStandardSecurityPolicy_ApplyToEnvironment(t *testing.T) {
 			configurePolicy: func(p *StandardSecurityPolicy) {
 				p.WithMemoryLimit(50 * 1024 * 1024) // 50MB
 			},
-			checkEnv: func(t *testing.T, env *materialize.Environment) {
+			checkEnv: func(t *testing.T, env *env.Environment) {
 				if val := env.EnvVars["GOMEMLIMIT"]; val != "52428800" {
 					t.Errorf("Expected GOMEMLIMIT=52428800, got %s", val)
 				}
@@ -74,7 +73,7 @@ func TestStandardSecurityPolicy_ApplyToEnvironment(t *testing.T) {
 			configurePolicy: func(p *StandardSecurityPolicy) {
 				p.WithEnvVar("TEST_VAR", "test_value")
 			},
-			checkEnv: func(t *testing.T, env *materialize.Environment) {
+			checkEnv: func(t *testing.T, env *env.Environment) {
 				if val := env.EnvVars["TEST_VAR"]; val != "test_value" {
 					t.Errorf("Expected TEST_VAR=test_value, got %s", val)
 				}
@@ -86,7 +85,7 @@ func TestStandardSecurityPolicy_ApplyToEnvironment(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create fresh environment and policy for each test
-			env := materialize.NewEnvironment("/tmp/test", false)
+			env := env.NewEnvironment("/tmp/test", false)
 			policy := NewStandardSecurityPolicy()
 
 			// Configure the policy

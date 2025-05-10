@@ -1,4 +1,4 @@
-package toolkit
+package env
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	toolkittesting "bitspark.dev/go-tree/pkg/toolkit/testing"
+	toolkittesting "bitspark.dev/go-tree/pkg/env/testing"
 )
 
 func TestStandardGoToolchain(t *testing.T) {

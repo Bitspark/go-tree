@@ -4,12 +4,13 @@ package execute
 
 import (
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/run/execute/materializeinterface"
+	"bitspark.dev/go-tree/pkg/env"
+	"bitspark.dev/go-tree/pkg/io/materialize"
 )
 
-// Alias the interfaces from materializeinterface for convenience
-type ModuleMaterializer = materializeinterface.ModuleMaterializer
-type Environment = materializeinterface.Environment
+// Alias the interfaces from materialize for convenience
+type ModuleMaterializer = *materialize.ModuleMaterializer
+type Environment = *env.Environment
 
 // TestResult contains the result of running tests
 type TestResult struct {
@@ -41,7 +42,7 @@ type TestResult struct {
 // ModuleResolver resolves modules by import path
 type ModuleResolver interface {
 	// ResolveModule resolves a module by import path and version
-	ResolveModule(path, version string, opts interface{}) (interface{}, error)
+	ResolveModule(path, version string, opts interface{}) (*typesys.Module, error)
 
 	// ResolveDependencies resolves dependencies for a module
 	ResolveDependencies(module interface{}, depth int) error
@@ -94,7 +95,7 @@ type ResultProcessor interface {
 // SecurityPolicy defines a security policy for code execution
 type SecurityPolicy interface {
 	// ApplyToEnvironment applies the security policy to an environment
-	ApplyToEnvironment(env Environment) error
+	ApplyToEnvironment(env *env.Environment) error
 
 	// Apply security constraints to command execution
 	ApplyToExecution(command []string) []string

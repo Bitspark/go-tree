@@ -2,6 +2,7 @@
 package testutil
 
 import (
+	"bitspark.dev/go-tree/pkg/io/materialize"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,7 +11,6 @@ import (
 	"bitspark.dev/go-tree/pkg/io/resolve"
 	"bitspark.dev/go-tree/pkg/run/execute"
 	"bitspark.dev/go-tree/pkg/run/execute/specialized"
-	"bitspark.dev/go-tree/pkg/testutil/materializehelper"
 )
 
 // TestModuleResolver is a resolver specifically for tests that can handle test modules
@@ -47,7 +47,7 @@ func (r *TestModuleResolver) MapModule(importPath, fsPath string) {
 }
 
 // ResolveModule implements the execute.ModuleResolver interface
-func (r *TestModuleResolver) ResolveModule(path, version string, opts interface{}) (interface{}, error) {
+func (r *TestModuleResolver) ResolveModule(path, version string, opts interface{}) (*typesys.Module, error) {
 	// Check if this is a filesystem path first
 	if _, err := os.Stat(path); err == nil {
 		// This is a filesystem path, load it directly
@@ -154,7 +154,7 @@ func CreateRunner() *execute.FunctionRunner {
 	// Pre-register the common test modules
 	registerTestModules(resolver)
 
-	materializer := materializehelper.GetDefaultMaterializer()
+	materializer := materialize.NewModuleMaterializer()
 
 	return execute.NewFunctionRunner(resolver, materializer)
 }

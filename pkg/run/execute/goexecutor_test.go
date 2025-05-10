@@ -1,12 +1,11 @@
 package execute
 
 import (
+	"bitspark.dev/go-tree/pkg/env"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"bitspark.dev/go-tree/pkg/io/materialize"
 )
 
 func TestGoExecutor_Execute(t *testing.T) {
@@ -28,7 +27,7 @@ func main() { fmt.Println("Hello, world!") }`
 	}
 
 	// Create a real environment
-	env := materialize.NewEnvironment(tmpDir, false)
+	env := env.NewEnvironment(tmpDir, false)
 
 	// Create executor and execute
 	executor := NewGoExecutor()
@@ -64,7 +63,7 @@ func main() { undefinedFunction() }`
 	}
 
 	// Create a real environment
-	env := materialize.NewEnvironment(tmpDir, false)
+	env := env.NewEnvironment(tmpDir, false)
 
 	// Create executor and execute
 	executor := NewGoExecutor()
@@ -110,7 +109,7 @@ func main() {
 	}
 
 	// Create a real environment
-	env := materialize.NewEnvironment(tmpDir, false)
+	env := env.NewEnvironment(tmpDir, false)
 
 	// Create security policy
 	security := NewStandardSecurityPolicy().WithAllowNetwork(false)
@@ -154,7 +153,7 @@ func main() {
 	}
 
 	// Create a real environment
-	env := materialize.NewEnvironment(tmpDir, false)
+	env := env.NewEnvironment(tmpDir, false)
 
 	// Create executor with a short timeout and execute
 	executor := NewGoExecutor().WithTimeout(1) // 1 second timeout
