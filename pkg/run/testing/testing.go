@@ -3,6 +3,7 @@
 package testing
 
 import (
+	"bitspark.dev/go-tree/pkg/run/common"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -10,7 +11,6 @@ import (
 	"bitspark.dev/go-tree/pkg/core/typesys"
 	"bitspark.dev/go-tree/pkg/io/materialize"
 	"bitspark.dev/go-tree/pkg/run/execute"
-	"bitspark.dev/go-tree/pkg/run/testing/common"
 )
 
 // Re-export common types for backward compatibility

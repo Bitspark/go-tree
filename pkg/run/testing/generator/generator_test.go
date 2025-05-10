@@ -1,10 +1,10 @@
 package generator
 
 import (
+	"bitspark.dev/go-tree/pkg/run/common"
 	"testing"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/run/testing/common"
 )
 
 // TestMockGenerator implements the TestGenerator interface for testing

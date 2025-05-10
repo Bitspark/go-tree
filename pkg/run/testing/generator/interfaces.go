@@ -4,7 +4,7 @@ package generator
 
 import (
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/run/testing/common"
+	"bitspark.dev/go-tree/pkg/run/common"
 )
 
 // TestGenerator generates tests for Go code

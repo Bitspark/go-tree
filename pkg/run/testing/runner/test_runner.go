@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bitspark.dev/go-tree/pkg/run/common"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,7 +13,6 @@ import (
 	"bitspark.dev/go-tree/pkg/io/materialize"
 	"bitspark.dev/go-tree/pkg/io/resolve"
 	"bitspark.dev/go-tree/pkg/run/execute"
-	"bitspark.dev/go-tree/pkg/run/testing/common"
 )
 
 // UnifiedTestRunner provides unified test execution functionality

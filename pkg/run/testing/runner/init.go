@@ -3,9 +3,9 @@ package runner
 import (
 	"bitspark.dev/go-tree/pkg/core/typesys"
 	"bitspark.dev/go-tree/pkg/io/materialize"
+	"bitspark.dev/go-tree/pkg/run/common"
 	"bitspark.dev/go-tree/pkg/run/execute"
 	"bitspark.dev/go-tree/pkg/run/testing"
-	"bitspark.dev/go-tree/pkg/run/testing/common"
 )
 
 // init registers the runner factory with the testing package

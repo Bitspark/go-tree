@@ -3,7 +3,7 @@ package runner
 
 import (
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/run/testing/common"
+	"bitspark.dev/go-tree/pkg/run/common"
 )
 
 // TestRunner runs tests for Go code

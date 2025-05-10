@@ -1,10 +1,10 @@
 package testing
 
 import (
+	"bitspark.dev/go-tree/pkg/run/common"
 	"testing"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
-	"bitspark.dev/go-tree/pkg/run/testing/common"
 )
 
 func TestDefaultTestGenerator(t *testing.T) {

@@ -2,8 +2,8 @@ package generator
 
 import (
 	"bitspark.dev/go-tree/pkg/core/typesys"
+	"bitspark.dev/go-tree/pkg/run/common"
 	"bitspark.dev/go-tree/pkg/run/testing"
-	"bitspark.dev/go-tree/pkg/run/testing/common"
 )
 
 // init registers the generator factory with the testing package
