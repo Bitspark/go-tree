@@ -64,6 +64,10 @@ func (p *StandardSecurityPolicy) ApplyToEnvironment(env Environment) error {
 		return fmt.Errorf("environment cannot be nil")
 	}
 
+	if env.EnvVars == nil {
+		env.EnvVars = map[string]string{}
+	}
+
 	if !p.AllowNetwork {
 		env.EnvVars["SANDBOX_NETWORK"] = "disabled"
 	}

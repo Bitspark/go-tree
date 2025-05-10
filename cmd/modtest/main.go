@@ -11,6 +11,8 @@ import (
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
 	"bitspark.dev/go-tree/pkg/run/common"
+	"bitspark.dev/go-tree/pkg/run/execute"
+	"bitspark.dev/go-tree/pkg/run/testing"
 	"bitspark.dev/go-tree/pkg/run/testing/runner"
 	"bitspark.dev/go-tree/pkg/service"
 )
@@ -31,6 +33,11 @@ func main() {
 	coverage := flag.Bool("coverage", false, "Calculate test coverage")
 	specificPkg := flag.String("package", "", "Test only a specific package (default is all packages)")
 	_ = flag.Duration("timeout", 10*time.Minute, "Test timeout duration") // Parsed but handled by the Go test command internally
+
+	// Add sandboxed flag
+	sandboxed := flag.Bool("sandboxed", false, "Run tests in a sandboxed environment with restricted access")
+	memoryLimit := flag.Int64("memory-limit", 100*1024*1024, "Memory limit for tests in bytes when using --sandboxed")
+
 	flag.Parse()
 
 	// Get module path from argument, default to current directory
@@ -101,7 +108,15 @@ func main() {
 	}
 
 	// Initialize the test runner with default settings
-	testRunner := runner.DefaultRunner()
+	testRunner := createTestRunner(*sandboxed, *memoryLimit)
+
+	// Display sandboxing information if enabled
+	if *sandboxed {
+		fmt.Println("🔒 Sandboxed mode enabled:")
+		fmt.Printf("  📵 Network access: disabled\n")
+		fmt.Printf("  🚫 File I/O: restricted\n")
+		fmt.Printf("  🧠 Memory limit: %s\n", formatBytes(*memoryLimit))
+	}
 
 	// Find all test functions in the module
 	testFunctions := findTestFunctions(mainModule, testFuncPrefix)
@@ -259,6 +274,39 @@ func main() {
 		fmt.Println("\n🎉 All tests passed successfully!")
 		os.Exit(0)
 	}
+}
+
+// createTestRunner creates a test runner with specified security settings
+func createTestRunner(sandboxed bool, memoryLimit int64) testing.TestRunner {
+	// Create basic executor
+	executor := execute.NewGoExecutor()
+
+	// Add security policy if sandboxed mode is enabled
+	if sandboxed {
+		securityPolicy := execute.NewStandardSecurityPolicy().
+			WithAllowNetwork(false).     // Disable network access
+			WithAllowFileIO(false).      // Restrict file I/O
+			WithMemoryLimit(memoryLimit) // Set memory limit
+
+		executor.WithSecurity(securityPolicy)
+	}
+
+	// Create runner with custom executor
+	return runner.NewRunner(executor)
+}
+
+// formatBytes formats bytes into a human-readable string
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
 // showProgress displays a progress indicator (dots) while a test is running
