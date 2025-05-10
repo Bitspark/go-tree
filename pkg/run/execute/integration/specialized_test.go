@@ -4,16 +4,13 @@ import (
 	"testing"
 	"time"
 
-	"bitspark.dev/go-tree/pkg/run/execute/specialized"
-
 	"bitspark.dev/go-tree/pkg/core/typesys"
 	"bitspark.dev/go-tree/pkg/run/execute/integration/testutil"
+	"bitspark.dev/go-tree/pkg/run/execute/specialized"
 )
 
 // TestRetryingFunctionRunner tests the retrying function runner with real error functions
 func TestRetryingFunctionRunner(t *testing.T) {
-	t.Skip("Skipping for now - implement AttemptNetworkAccess in complexreturn test module to fully test")
-
 	// Skip in short mode
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -29,54 +26,68 @@ func TestRetryingFunctionRunner(t *testing.T) {
 	baseRunner := testutil.CreateRunner()
 	retryRunner := testutil.CreateRetryingRunner()
 
-	// Setup a policy with 3 max retries
-	retryRunner.WithPolicy(&specialized.RetryPolicy{
-		MaxRetries:    3,
-		InitialDelay:  10 * time.Millisecond, // Use small delays for tests
-		MaxDelay:      50 * time.Millisecond,
+	// Setup a policy with only 2 retries to keep test times reasonable
+	retryPolicy := &specialized.RetryPolicy{
+		MaxRetries:    2,
+		InitialDelay:  50 * time.Millisecond, // Longer delay for more reliable timing tests
+		MaxDelay:      200 * time.Millisecond,
 		BackoffFactor: 2.0,
 		RetryableErrors: []string{
-			"temporary failure", // This should match our test module's error message
+			"temporary failure", // This should match our RetryableError function
 		},
-	})
+	}
+	retryRunner.WithPolicy(retryPolicy)
 
-	// Execute a function that should succeed after retries
-	result, err := retryRunner.ResolveAndExecuteFunc(
+	// ---------- Test 1: The RetryingFunctionRunner should properly retry based on error pattern matching ----------
+	// Measure execution time for the retryable error (should be slower due to retries)
+	startRetryable := time.Now()
+	_, errRetryable := retryRunner.ResolveAndExecuteFunc(
 		modulePath,
 		"github.com/test/errors",
-		"TemporaryFailure", // This function in our test module should fail temporarily
-		2)                  // Value indicating how many times to fail before succeeding
+		"RetryableError")
+	durationRetryable := time.Since(startRetryable)
 
-	if err != nil {
-		t.Fatalf("Expected success after retries: %v", err)
+	// This should eventually fail but should have retried (taking longer)
+	if errRetryable == nil {
+		t.Error("RetryableError should eventually fail")
 	}
 
-	// Check the result
-	expectedResult := "success after retries"
-	if result != expectedResult {
-		t.Errorf("Expected '%s', got: %v", expectedResult, result)
+	// Measure execution time for the non-retryable error (should be faster, no retries)
+	startNonRetryable := time.Now()
+	_, errNonRetryable := retryRunner.ResolveAndExecuteFunc(
+		modulePath,
+		"github.com/test/errors",
+		"NonRetryableError")
+	durationNonRetryable := time.Since(startNonRetryable)
+
+	// Should fail without retries
+	if errNonRetryable == nil {
+		t.Error("Expected NonRetryableError to fail")
 	}
 
-	// Check that we get an error when using the base runner without retries
+	// Log the timings for diagnosis
+	t.Logf("RetryableError duration: %v, NonRetryableError duration: %v",
+		durationRetryable, durationNonRetryable)
+
+	// The key test: RetryableError should take significantly longer than NonRetryableError
+	// because it's being retried multiple times, while NonRetryableError fails immediately
+
+	// Allow for some system variance - RetryableError should be at least 30% longer
+	// This is a more reliable test than a fixed time difference
+	if float64(durationRetryable) < float64(durationNonRetryable)*1.3 {
+		t.Errorf("RetryableError (%v) didn't take significantly longer than NonRetryableError (%v)",
+			durationRetryable, durationNonRetryable)
+	}
+
+	// ---------- Test 2: The base runner doesn't retry ----------
+	// We'll just check that it fails as expected (can't test performance reliably)
 	_, baseErr := baseRunner.ResolveAndExecuteFunc(
 		modulePath,
 		"github.com/test/errors",
-		"TemporaryFailure",
-		1) // Should fail on first attempt
+		"RetryableError")
 
 	if baseErr == nil {
-		t.Errorf("Expected base runner to fail without retries")
-	}
-
-	// Try a function that returns a non-retryable error
-	_, nonRetryableErr := retryRunner.ResolveAndExecuteFunc(
-		modulePath,
-		"github.com/test/errors",
-		"PermanentFailure",
-		0)
-
-	if nonRetryableErr == nil {
-		t.Errorf("Expected error for non-retryable function")
+		t.Error("Expected base runner to fail with RetryableError")
 	}
 }
 

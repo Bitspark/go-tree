@@ -52,3 +52,15 @@ func TemporaryFailure(failCount int) (string, error) {
 func PermanentFailure(unused int) (string, error) {
 	return "", errors.New("permanent failure that should not be retried")
 }
+
+// RetryableError always returns an error that matches retry patterns
+// This function is specifically for testing retry functionality
+func RetryableError() (string, error) {
+	return "", errors.New("temporary failure - this error should be retried")
+}
+
+// NonRetryableError always returns an error that doesn't match retry patterns
+// This function is specifically for testing retry functionality
+func NonRetryableError() (string, error) {
+	return "", errors.New("critical failure - this error should NOT be retried")
+}

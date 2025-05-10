@@ -1,6 +1,13 @@
 // Package complexreturn provides functions that return complex types for testing
 package complexreturn
 
+import (
+	"errors"
+	"fmt"
+	"net/http"
+	"time"
+)
+
 // Person represents a person
 type Person struct {
 	Name    string
@@ -112,4 +119,25 @@ func GetComplexStruct() ComplexStruct {
 			"scores":   []int{85, 92, 78},
 		},
 	}
+}
+
+// AttemptNetworkAccess tries to access a network resource and returns the result
+// This function is used to test security policies that block network access
+func AttemptNetworkAccess(url string) (string, error) {
+	if url == "" {
+		return "", errors.New("URL cannot be empty")
+	}
+
+	// Try to make a network request
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return "", fmt.Errorf("network request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	return fmt.Sprintf("Network access successful, status: %s", resp.Status), nil
 }
