@@ -7,24 +7,6 @@ import (
 	"bitspark.dev/go-tree/pkg/io/materialize"
 )
 
-// ExecutionResult contains the result of executing a command
-type ExecutionResult struct {
-	// Command that was executed
-	Command string
-
-	// StdOut from the command
-	StdOut string
-
-	// StdErr from the command
-	StdErr string
-
-	// Exit code
-	ExitCode int
-
-	// Error if any occurred during execution
-	Error error
-}
-
 // TestResult contains the result of running tests
 type TestResult struct {
 	// Package that was tested
@@ -52,18 +34,32 @@ type TestResult struct {
 	Coverage float64
 }
 
-// Executor defines the execution capabilities
+// Executor defines the core execution capabilities
 type Executor interface {
 	// Execute a command in a materialized environment
 	Execute(env *materialize.Environment, command []string) (*ExecutionResult, error)
 
-	// Execute a test in a materialized environment
-	ExecuteTest(env *materialize.Environment, module *typesys.Module, pkgPath string,
-		testFlags ...string) (*TestResult, error)
-
 	// Execute a function in a materialized environment
 	ExecuteFunc(env *materialize.Environment, module *typesys.Module,
 		funcSymbol *typesys.Symbol, args ...interface{}) (interface{}, error)
+}
+
+// ExecutionResult contains the result of executing a command
+type ExecutionResult struct {
+	// Command that was executed
+	Command string
+
+	// StdOut from the command
+	StdOut string
+
+	// StdErr from the command
+	StdErr string
+
+	// Exit code
+	ExitCode int
+
+	// Error if any occurred during execution
+	Error error
 }
 
 // CodeGenerator generates executable code
@@ -80,9 +76,6 @@ type CodeGenerator interface {
 type ResultProcessor interface {
 	// Process raw execution result into a typed value
 	ProcessFunctionResult(result *ExecutionResult, funcSymbol *typesys.Symbol) (interface{}, error)
-
-	// Process test results
-	ProcessTestResult(result *ExecutionResult, testSymbol *typesys.Symbol) (*TestResult, error)
 }
 
 // SecurityPolicy defines constraints for code execution

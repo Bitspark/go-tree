@@ -3,6 +3,7 @@ package runner
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
@@ -13,8 +14,8 @@ import (
 
 // Runner implements the TestRunner interface
 type Runner struct {
-	// Executor for running tests
-	Executor execute.Executor
+	// Unified test runner for internal use
+	unifiedRunner *UnifiedTestRunner
 }
 
 // NewRunner creates a new test runner
@@ -23,7 +24,7 @@ func NewRunner(executor execute.Executor) *Runner {
 		executor = execute.NewGoExecutor()
 	}
 	return &Runner{
-		Executor: executor,
+		unifiedRunner: NewUnifiedTestRunner(executor, nil, nil),
 	}
 }
 
@@ -59,30 +60,8 @@ func (r *Runner) RunTests(mod *typesys.Module, pkgPath string, opts *common.RunO
 	// Create a simple environment for test execution
 	env := &materialize.Environment{}
 
-	// Execute tests
-	execResult, execErr := r.Executor.ExecuteTest(env, mod, pkgPath, testFlags...)
-
-	// Create result regardless of error (error might just indicate test failures)
-	result := &common.TestResult{
-		Package:       pkgPath,
-		Tests:         execResult.Tests,
-		Passed:        execResult.Passed,
-		Failed:        execResult.Failed,
-		Output:        execResult.Output,
-		Error:         execErr,
-		TestedSymbols: execResult.TestedSymbols,
-		Coverage:      0.0, // We'll calculate this if coverage analysis is requested
-	}
-
-	// Calculate coverage if requested
-	if r.shouldCalculateCoverage(opts) {
-		coverageResult, err := r.AnalyzeCoverage(mod, pkgPath)
-		if err == nil && coverageResult != nil {
-			result.Coverage = coverageResult.Percentage
-		}
-	}
-
-	return result, nil
+	// Execute tests using the unified test runner instead of directly calling executor
+	return r.unifiedRunner.ExecuteTest(env, mod, pkgPath, testFlags...)
 }
 
 // AnalyzeCoverage analyzes test coverage for a module
@@ -101,7 +80,9 @@ func (r *Runner) AnalyzeCoverage(mod *typesys.Module, pkgPath string) (*common.C
 
 	// Run tests with coverage
 	testFlags := []string{"-cover", "-coverprofile=coverage.out"}
-	execResult, err := r.Executor.ExecuteTest(env, mod, pkgPath, testFlags...)
+
+	// Use unified runner to execute the tests
+	execResult, err := r.unifiedRunner.ExecuteTest(env, mod, pkgPath, testFlags...)
 	if err != nil {
 		// Don't fail completely if tests failed, we might still have partial coverage
 		fmt.Printf("Warning: tests failed but continuing with coverage analysis: %v\n", err)
@@ -134,6 +115,24 @@ func (r *Runner) ParseCoverageOutput(output string) (*common.CoverageResult, err
 
 	// Look for coverage percentage in the output
 	// Example: "coverage: 75.0% of statements"
+	coverageRegex := strings.Index(output, "coverage: ")
+	if coverageRegex >= 0 {
+		// Extract the substring that contains the coverage info
+		subStr := output[coverageRegex:]
+		endPercentage := strings.Index(subStr, "%")
+
+		if endPercentage > 0 {
+			// Extract just the number part (after "coverage: " and before "%")
+			coverageStr := subStr[len("coverage: "):endPercentage]
+			// Parse it as a float
+			if percentage, err := parseFloat(coverageStr); err == nil {
+				result.Percentage = percentage
+				return result, nil
+			}
+		}
+	}
+
+	// If we couldn't parse with the specific method above, try the original implementation
 	var coveragePercentage float64
 	_, err := fmt.Sscanf(output, "coverage: %f%% of statements", &coveragePercentage)
 	if err == nil {
@@ -148,14 +147,20 @@ func (r *Runner) ParseCoverageOutput(output string) (*common.CoverageResult, err
 				result.Percentage = coveragePercentage
 			}
 		}
-		// If still can't parse, default to 0
-		result.Percentage = 0.0
 	}
 
-	// TODO: Parse more detailed coverage information from the coverage.out file
-	// This would involve reading and parsing the file format
-
 	return result, nil
+}
+
+// parseFloat is a helper to parse a string to float, handling error cases
+func parseFloat(s string) (float64, error) {
+	// Check if the string is a valid format before trying to parse
+	if !strings.Contains(s, ".") || len(s) == 0 || s[0] == '.' || s[len(s)-1] == '.' {
+		return 0.0, fmt.Errorf("invalid float format: %s", s)
+	}
+
+	// Use standard string to float conversion
+	return strconv.ParseFloat(s, 64)
 }
 
 // MapCoverageToSymbols maps coverage data to symbols in the module
