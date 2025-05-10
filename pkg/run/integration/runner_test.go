@@ -2,8 +2,9 @@
 package integration
 
 import (
-	"bitspark.dev/go-tree/pkg/testutil"
 	"testing"
+
+	"bitspark.dev/go-tree/pkg/testutil"
 )
 
 // TestSimpleMathFunctions tests executing functions from the simplemath module
@@ -47,6 +48,9 @@ func TestSimpleMathFunctions(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to execute %s: %v", tt.function, err)
 			}
+
+			// Debug output
+			t.Logf("Result type: %T, value: %v", result, result)
 
 			// Check if the result is what we expect
 			// Results usually come as float64 due to JSON serialization

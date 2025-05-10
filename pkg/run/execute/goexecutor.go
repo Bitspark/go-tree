@@ -63,6 +63,9 @@ func (e *GoExecutor) Execute(env Environment, command []string) (*ExecutionResul
 		return nil, errors.New("command cannot be empty")
 	}
 
+	// Debug output
+	fmt.Printf("Executing command: %s in directory: %s\n", strings.Join(command, " "), env.GetPath())
+
 	// Apply security policy to command if available
 	if e.Security != nil {
 		command = e.Security.ApplyToExecution(command)
@@ -117,10 +120,15 @@ func (e *GoExecutor) Execute(env Environment, command []string) (*ExecutionResul
 	// Create result
 	result := &ExecutionResult{
 		Command:  strings.Join(command, " "),
-		Stdout:   stdout.String(),
-		Stderr:   stderr.String(),
+		StdOut:   stdout.String(),
+		StdErr:   stderr.String(),
 		ExitCode: 0,
 		Error:    nil,
+	}
+
+	// Debug output on error
+	if err != nil {
+		fmt.Printf("Command failed: %v\nStdout: %s\nStderr: %s\n", err, result.StdOut, result.StdErr)
 	}
 
 	// Handle error
@@ -164,19 +172,19 @@ func (e *GoExecutor) ExecuteTest(env Environment, module *typesys.Module, pkgPat
 	}
 
 	// Populate the result
-	result.Output = execResult.Stdout + execResult.Stderr
+	result.Output = execResult.StdOut + execResult.StdErr
 
 	// Parse test output to count passes and failures
-	if strings.Contains(execResult.Stdout, "ok") || strings.Contains(execResult.Stdout, "PASS") {
+	if strings.Contains(execResult.StdOut, "ok") || strings.Contains(execResult.StdOut, "PASS") {
 		// Tests passed
-		result.Passed = countTests(execResult.Stdout)
-	} else if strings.Contains(execResult.Stdout, "FAIL") {
+		result.Passed = countTests(execResult.StdOut)
+	} else if strings.Contains(execResult.StdOut, "FAIL") {
 		// Some tests failed
-		result.Passed, result.Failed = parseTestResults(execResult.Stdout)
+		result.Passed, result.Failed = parseTestResults(execResult.StdOut)
 	}
 
 	// Parse the test names
-	result.Tests = parseTestNames(execResult.Stdout)
+	result.Tests = parseTestNames(execResult.StdOut)
 
 	// Set error if tests failed
 	if result.Failed > 0 {

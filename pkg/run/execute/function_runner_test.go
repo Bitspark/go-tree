@@ -1,6 +1,7 @@
 package execute
 
 import (
+	"fmt"
 	"testing"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
@@ -84,7 +85,7 @@ type MockResolver struct {
 	Registry *MockRegistry
 }
 
-func (r *MockResolver) ResolveModule(path, version string, opts interface{}) (*typesys.Module, error) {
+func (r *MockResolver) ResolveModule(path, version string, opts interface{}) (any, error) {
 	// First try the registry if available
 	if r.Registry != nil {
 		if module, ok := r.Registry.FindModule(path); ok {
@@ -102,7 +103,7 @@ func (r *MockResolver) ResolveModule(path, version string, opts interface{}) (*t
 	return module, nil
 }
 
-func (r *MockResolver) ResolveDependencies(module *typesys.Module, depth int) error {
+func (r *MockResolver) ResolveDependencies(module any, depth int) error {
 	return nil
 }
 
@@ -119,18 +120,15 @@ func (r *MockResolver) AddDependency(from, to *typesys.Module) error {
 // MockMaterializer is a mock implementation of ModuleMaterializer
 type MockMaterializer struct{}
 
-func (m *MockMaterializer) MaterializeMultipleModules(modules []*typesys.Module, opts materialize.MaterializeOptions) (*materialize.Environment, error) {
-	env := materialize.NewEnvironment("test-dir", false)
-	for _, module := range modules {
-		env.ModulePaths[module.Path] = "test-dir/" + module.Path
+// Materialize implements the materializeinterface.ModuleMaterializer interface
+func (m *MockMaterializer) Materialize(module interface{}, opts interface{}) (Environment, error) {
+	typedModule, ok := module.(*typesys.Module)
+	if !ok {
+		return nil, fmt.Errorf("expected *typesys.Module, got %T", module)
 	}
-	return env, nil
-}
 
-// Additional methods required by the materialize.Materializer interface
-func (m *MockMaterializer) Materialize(module *typesys.Module, opts materialize.MaterializeOptions) (*materialize.Environment, error) {
 	env := materialize.NewEnvironment("test-dir", false)
-	env.ModulePaths[module.Path] = "test-dir/" + module.Path
+	env.ModulePaths[typedModule.Path] = "test-dir/" + typedModule.Path
 	return env, nil
 }
 
@@ -142,24 +140,27 @@ type MockExecutor struct {
 	LastCommand   []string
 }
 
-func (e *MockExecutor) Execute(env *materialize.Environment, command []string) (*ExecutionResult, error) {
+func (e *MockExecutor) Execute(env Environment, command []string) (*ExecutionResult, error) {
 	// Track the last environment and command for assertions
 	e.LastCommand = command
 	e.LastEnvVars = make(map[string]string)
 
-	// Copy environment variables for testing
-	for k, v := range env.EnvVars {
-		e.LastEnvVars[k] = v
-	}
+	// We can't access EnvVars directly now that we're using the interface
+	// If needed, you can cast to concrete type with caution:
+	// if concreteEnv, ok := env.(*materialize.Environment); ok {
+	//     for k, v := range concreteEnv.EnvVars {
+	//         e.LastEnvVars[k] = v
+	//     }
+	// }
 
 	return e.ExecuteResult, nil
 }
 
-func (e *MockExecutor) ExecuteTest(env *materialize.Environment, module *typesys.Module, pkgPath string, testFlags ...string) (*TestResult, error) {
+func (e *MockExecutor) ExecuteTest(env Environment, module *typesys.Module, pkgPath string, testFlags ...string) (*TestResult, error) {
 	return e.TestResult, nil
 }
 
-func (e *MockExecutor) ExecuteFunc(env *materialize.Environment, module *typesys.Module, funcSymbol *typesys.Symbol, args ...interface{}) (interface{}, error) {
+func (e *MockExecutor) ExecuteFunc(env Environment, module *typesys.Module, funcSymbol *typesys.Symbol, args ...interface{}) (interface{}, error) {
 	return 42, nil // Always return 42 for tests
 }
 

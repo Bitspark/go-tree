@@ -63,10 +63,10 @@ type ExecutionResult struct {
 	ExitCode int
 
 	// Standard output
-	Stdout string
+	StdOut string
 
 	// Standard error
-	Stderr string
+	StdErr string
 
 	// Command that was executed
 	Command string

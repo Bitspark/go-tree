@@ -2,12 +2,13 @@
 package service
 
 import (
+	"fmt"
+	"go/types"
+
 	"bitspark.dev/go-tree/pkg/core/index"
 	"bitspark.dev/go-tree/pkg/io/loader"
 	materialize2 "bitspark.dev/go-tree/pkg/io/materialize"
 	resolve2 "bitspark.dev/go-tree/pkg/io/resolve"
-	"fmt"
-	"go/types"
 
 	"bitspark.dev/go-tree/pkg/core/typesys"
 )
@@ -55,7 +56,7 @@ type Service struct {
 
 	// New architecture components
 	Resolver     resolve2.Resolver
-	Materializer materialize2.Materializer
+	Materializer *materialize2.ModuleMaterializer
 
 	// Configuration
 	Config *Config
@@ -82,6 +83,7 @@ func NewService(config *Config) (*Service, error) {
 	}
 	service.Resolver = resolve2.NewModuleResolverWithOptions(resolveOpts)
 
+	// Use ModuleMaterializer directly
 	service.Materializer = materialize2.NewModuleMaterializer()
 
 	// Load main module first
@@ -311,7 +313,8 @@ func (s *Service) CreateEnvironment(modules []*typesys.Module, opts *Config) (*m
 		Verbose:          opts != nil && opts.Verbose,
 	}
 
-	// Materialize the modules
+	// Materialize the modules - we get a concrete type, not an interface
+	// since we're using MaterializeMultipleModules directly, not through the interface
 	return s.Materializer.MaterializeMultipleModules(modules, materializeOpts)
 }
 

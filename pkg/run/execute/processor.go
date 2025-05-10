@@ -32,7 +32,7 @@ func (p *JsonResultProcessor) ProcessFunctionResult(
 	}
 
 	// Parse the stdout as JSON
-	jsonOutput := strings.TrimSpace(result.Stdout)
+	jsonOutput := strings.TrimSpace(result.StdOut)
 	if jsonOutput == "" {
 		return nil, fmt.Errorf("empty result")
 	}
@@ -69,16 +69,16 @@ func (p *JsonResultProcessor) ProcessTestResult(
 		Tests:   []string{},
 		Passed:  0,
 		Failed:  0,
-		Output:  result.Stdout + result.Stderr,
+		Output:  result.StdOut + result.StdErr,
 		Error:   result.Error,
 	}
 
 	// Extract test information from output
-	testResult.Tests = extractTestNames(result.Stdout)
-	testResult.Passed, testResult.Failed = countPassFail(result.Stdout)
+	testResult.Tests = extractTestNames(result.StdOut)
+	testResult.Passed, testResult.Failed = countPassFail(result.StdOut)
 
 	// Extract package name
-	pkgName := extractPackageName(result.Stdout)
+	pkgName := extractPackageName(result.StdOut)
 	if pkgName != "" {
 		testResult.Package = pkgName
 	} else if testSymbol != nil && testSymbol.Package != nil {
@@ -86,7 +86,7 @@ func (p *JsonResultProcessor) ProcessTestResult(
 	}
 
 	// Extract coverage information
-	testResult.Coverage = extractCoverage(result.Stdout)
+	testResult.Coverage = extractCoverage(result.StdOut)
 
 	// If test symbol is provided, add it to the tested symbols
 	if testSymbol != nil {
